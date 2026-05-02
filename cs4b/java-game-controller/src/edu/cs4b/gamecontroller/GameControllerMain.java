@@ -1,4 +1,4 @@
-package edu.cs4b.player;
+package edu.cs4b.gamecontroller;
 
 import edu.cs4b.client.MessageListener;
 import edu.cs4b.client.RouterClient;
@@ -33,7 +33,7 @@ import java.util.UUID;
  *   leave <gameId>       Unsubscribe from a game channel
  *   quit                 Disconnect and exit
  */
-public class PlayerMain {
+public class GameControllerMain {
 
     private static final String DEFAULT_HOST = "localhost";
     private static final int DEFAULT_PORT = 4000;
