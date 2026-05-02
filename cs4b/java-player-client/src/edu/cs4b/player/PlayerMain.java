@@ -1,0 +1,160 @@
+package edu.cs4b.player;
+
+import edu.cs4b.client.MessageListener;
+import edu.cs4b.client.RouterClient;
+import edu.cs4b.protocol.Message;
+import edu.cs4b.protocol.TextMessage;
+
+import java.io.IOException;
+import java.util.Scanner;
+import java.util.UUID;
+
+/**
+ * Example player client that demonstrates the full message-passing lifecycle.
+ *
+ * Channels use a path-like naming convention:
+ *   /lobby              — global chat channel
+ *   /game/<id>          — a specific game session
+ *   /dm/<name>          — direct messages for a player
+ *
+ * The router supports wildcard subscriptions: subscribing to "/game/*"
+ * delivers messages from ALL game channels (e.g., /game/abc, /game/xyz).
+ *
+ * Usage:
+ *   java edu.cs4b.player.PlayerMain --name Alice
+ *   java edu.cs4b.player.PlayerMain --name Bob
+ *   java edu.cs4b.player.PlayerMain               (random name)
+ *
+ * Commands:
+ *   say <text>           Send a TextMessage to /lobby
+ *   move <row> <col>     Send a MoveMessage to your game channel
+ *   emoji <emoji> <n>    Send an EmojiMessage to /lobby
+ *   join <gameId>        Subscribe to a game channel /game/<gameId>
+ *   leave <gameId>       Unsubscribe from a game channel
+ *   quit                 Disconnect and exit
+ */
+public class PlayerMain {
+
+    private static final String DEFAULT_HOST = "localhost";
+    private static final int DEFAULT_PORT = 4000;
+    private static final String LOBBY = "/lobby";
+
+    public static void main(String[] args) {
+        String name = "Player-" + UUID.randomUUID().toString().substring(0, 4);
+        String host = DEFAULT_HOST;
+        int port = DEFAULT_PORT;
+
+        // Parse command-line arguments
+        for (int i = 0; i < args.length - 1; i++) {
+            switch (args[i]) {
+                case "--name" -> name = args[++i];
+                case "--host" -> host = args[++i];
+                case "--port" -> port = Integer.parseInt(args[++i]);
+            }
+        }
+
+        // Track which game channel the player is currently in (if any)
+        final String[] currentGame = {null};
+
+        RouterClient client = new RouterClient(host, port);
+
+        try {
+            client.connect();
+
+            // A single listener that handles all message types on any channel.
+            // This is polymorphism in action — different Message subclasses
+            // flow through the same callback, and we use instanceof to
+            // distinguish them.
+            MessageListener listener = (channel, senderId, message) -> {
+                String prefix = "[" + channel + "] ";
+                if (message instanceof JoinMessage join) {
+                    System.out.println(prefix + senderId + " joined: " + join.getPlayerName());
+                } else if (message instanceof MoveMessage move) {
+                    System.out.println(prefix + senderId + " played: (" + move.getRow() + ", " + move.getCol() + ")");
+                } else if (message instanceof EmojiMessage emoji) {
+                    System.out.println(prefix + senderId + " sent: " + emoji.render());
+                } else if (message instanceof TextMessage text) {
+                    System.out.println(prefix + senderId + " says: " + text.getText());
+                } else {
+                    System.out.println(prefix + senderId + " sent: " + message);
+                }
+            };
+
+            // Subscribe to the lobby channel
+            client.subscribe(LOBBY, listener);
+
+            // Announce ourselves in the lobby
+            client.send(LOBBY, new JoinMessage(name));
+
+            // Interactive command loop
+            System.out.println();
+            System.out.println("Commands:");
+            System.out.println("  say <text>           Send a chat message to /lobby");
+            System.out.println("  move <row> <col>     Send a move to your game channel");
+            System.out.println("  emoji <emoji> <n>    Send an emoji n times to /lobby");
+            System.out.println("  join <gameId>        Join game channel /game/<gameId>");
+            System.out.println("  leave <gameId>       Leave game channel /game/<gameId>");
+            System.out.println("  quit                 Disconnect and exit");
+            System.out.println();
+
+            Scanner scanner = new Scanner(System.in);
+            while (scanner.hasNextLine()) {
+                String line = scanner.nextLine().trim();
+                if (line.isEmpty()) continue;
+
+                try {
+                    if (line.startsWith("say ")) {
+                        client.send(LOBBY, new TextMessage(line.substring(4)));
+
+                    } else if (line.startsWith("move ")) {
+                        if (currentGame[0] == null) {
+                            System.out.println("Not in a game. Use: join <gameId>");
+                            continue;
+                        }
+                        String[] parts = line.split("\\s+");
+                        int row = Integer.parseInt(parts[1]);
+                        int col = Integer.parseInt(parts[2]);
+                        client.send(currentGame[0], new MoveMessage(row, col));
+
+                    } else if (line.startsWith("emoji ")) {
+                        String[] parts = line.split("\\s+");
+                        String emoji = parts[1];
+                        int count = Integer.parseInt(parts[2]);
+                        client.send(LOBBY, new EmojiMessage(emoji, count));
+
+                    } else if (line.startsWith("join ")) {
+                        String gameId = line.substring(5).trim();
+                        String gameChannel = "/game/" + gameId;
+                        client.subscribe(gameChannel, listener);
+                        currentGame[0] = gameChannel;
+                        System.out.println("Joined " + gameChannel);
+
+                    } else if (line.startsWith("leave ")) {
+                        String gameId = line.substring(6).trim();
+                        String gameChannel = "/game/" + gameId;
+                        client.unsubscribe(gameChannel);
+                        if (gameChannel.equals(currentGame[0])) {
+                            currentGame[0] = null;
+                        }
+                        System.out.println("Left " + gameChannel);
+
+                    } else if (line.equals("quit")) {
+                        break;
+
+                    } else {
+                        System.out.println("Unknown command. Try: say, move, emoji, join, leave, quit");
+                    }
+                } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
+                    System.out.println("Invalid arguments. Check your command format.");
+                }
+            }
+
+            client.unsubscribe(LOBBY);
+            client.disconnect();
+
+        } catch (IOException e) {
+            System.err.println("Error: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+}
