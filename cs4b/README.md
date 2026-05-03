@@ -777,9 +777,12 @@ cd cs4b
 # Compile both projects
 javac -d java-router/out java-router/src/edu/cs4b/protocol/*.java java-router/src/edu/cs4b/router/*.java
 javac -d java-player-client/out java-player-client/src/edu/cs4b/protocol/*.java java-player-client/src/edu/cs4b/client/*.java java-player-client/src/edu/cs4b/player/*.java
+javac -d java-game-controller/out java-game-controller/src/edu/cs4b/protocol/*.java java-game-controller/src/edu/cs4b/client/*.java java-game-controller/src/edu/cs4b/gamecontroller/*.java
 
 # Run (3 separate terminals, each in the cs4b/ directory)
 java -cp java-router/out edu.cs4b.router.RouterMain
+
+java -cp java-game-controller/out edu.cs4b.gamecontroller.GameControllerMain
 java -cp java-player-client/out edu.cs4b.player.PlayerMain --name Alice
 java -cp java-player-client/out edu.cs4b.player.PlayerMain --name Bob
 
