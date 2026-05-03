@@ -2,11 +2,11 @@ package edu.cs4b.protocol;
 
 public class MoveAcceptedMessage implements Message {
     private String gameId;
-    private String playerId;
+    private String playerId;    // the playerId of the player that made the move
     private int row;
     private int col;
     private String updatedBoard;
-    private String nextTurn;
+    private String nextTurn;    // the playerId of the player whose turn is next
     private String gameStatus;
 
     public MoveAcceptedMessage(String gameId, String playerId, int row, int col,

@@ -3,10 +3,15 @@ package edu.cs4b.gamecontroller;
 import edu.cs4b.client.MessageListener;
 import edu.cs4b.client.RouterClient;
 import edu.cs4b.protocol.JoinMessage;
+import edu.cs4b.protocol.MakeMoveMessage;
+import edu.cs4b.protocol.Message;
+import edu.cs4b.protocol.MoveAcceptedMessage;
 import edu.cs4b.protocol.MoveMessage;
+import edu.cs4b.protocol.MoveRejectedMessage;
 import edu.cs4b.protocol.TextMessage;
 
 import java.io.IOException;
+import java.util.Random;
 
 /**
  * GameController client
@@ -23,6 +28,7 @@ public class GameControllerMain {
     private static final String DEFAULT_HOST = "localhost";
     private static final int DEFAULT_PORT = 4000;
     private static final String ALL_GAME_CHANNELS = "/game/*";
+    private static final String PLAYERS = "/players";
 
     // TODO: possible ConcurrentHashMap for grid-gameId pairs ?
 
@@ -53,13 +59,7 @@ public class GameControllerMain {
                 if (message instanceof JoinMessage join) {
                     System.out.println("Player joined: " + join.getPlayerName());
                 } else if (message instanceof MakeMoveMessage move) {
-                    // check if the move is valid
-                    if (checkIfMoveValid(move.getGameId(), move.getRow(), move.getColumn())) {
-                        // if it's valid, update the game board
-                        updateGameBoard(move.getGameId(), move.getRow(), move.getColumn());
-                        // send the MoveAcceptedMessage to the players
-                    }
-                    System.out.println("Move: row " + move.getRow() + ", col " + move.getColumn());
+                    makeMoveMessageReceived(client, channel, move);
                 } else if (message instanceof TextMessage text) {
                     System.out.println("Text: " + text.getText());
                 } else {
@@ -89,13 +89,66 @@ public class GameControllerMain {
         }
     }
 
+    private static void makeMoveMessageReceived(RouterClient client, String channel, MakeMoveMessage move) {
+        try {
+            // check if the move is valid
+            if (checkIfMoveValid(move.getGameId(), move.getRow(), move.getColumn())) {
+                // if it's valid, update the game board
+                updateGameBoard(move.getGameId(), move.getRow(), move.getColumn());
+                // check the state of the board
+                int boardStatus = checkGameEnd(move.getGameId());
+                // if the boardStatus returned is not 0, the game is finished
+                String statusStr;
+                // TODO: create a better status indicator
+                if (boardStatus != 0) {
+                    statusStr = "Completed";
+                } else {
+                    statusStr = "Ongoing";
+                }
+                // send the MoveAcceptedMessage to the players
+                client.send(channel + move.getGameId(), new MoveAcceptedMessage(
+                                            move.getGameId(), 
+                                            move.getPlayerId(), 
+                                            move.getRow(), 
+                                            move.getColumn(), 
+                                            "board-state-here",
+                                            "X or O", 
+                                            statusStr));
+                // TODO: actually send an updated board state, whose turn is next, and the game status
+            } else {
+                // TODO: create actual reason for rejection
+                client.send(PLAYERS + move.getPlayerId(), new MoveRejectedMessage(
+                                            move.getGameId(), 
+                                            move.getPlayerId(),
+                                            move.getRow(), 
+                                            move.getColumn(), 
+                                            "Just because lol")); 
+            }
+        } catch (IOException e) {
+            System.err.println("Error: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
     private static boolean checkIfMoveValid(String gameId, int row, int column) {
         // TODO do an actual validation using gameId's associated game board to check if a move is already there
         return true;
     }
 
     private static void updateGameBoard(String gameId, int row, int column) {
-        // update game board associated with gameId
+        // TODO: update game board associated with gameId
         return;
+    }
+
+    // Returns the following:
+    // 1 if game is won by a player
+    // 0 if game is continuing
+    // -1 if game is a draw
+    // TODO: for now, randomly generates game end state, need to determine the ACTUAL game end
+    private static int checkGameEnd(String gameId) {
+        Random random = new Random();
+        // returns a number between -1 and 1
+        // (0, 1, or 2) - 1 translates to a -1, 0, or 1
+        return random.nextInt(3) - 1; 
     }
 }

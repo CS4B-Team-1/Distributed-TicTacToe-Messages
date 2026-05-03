@@ -3,13 +3,15 @@ package edu.cs4b.protocol;
 public class MoveRejectedMessage implements Message {
     private String gameId;
     private String playerId;
-    private String attemptedPosition;
+    private int row;
+    private int column;
     private String reason;
 
-    public MoveRejectedMessage(String gameId, String playerId, String attemptedPosition, String reason) {
+    public MoveRejectedMessage(String gameId, String playerId, int row, int column, String reason) {
         this.gameId = gameId;
         this.playerId = playerId;
-        this.attemptedPosition = attemptedPosition;
+        this.row = row;
+        this.column = column;
         this.reason = reason;
     }
 
@@ -21,8 +23,12 @@ public class MoveRejectedMessage implements Message {
         return this.playerId;
     }
 
-    public String getAttemptedPosition() {
-        return this.attemptedPosition;
+    public int getRow() {
+        return this.row;
+    }
+    
+    public int getCol() {
+        return this.column;
     }
 
     public String getReason() {

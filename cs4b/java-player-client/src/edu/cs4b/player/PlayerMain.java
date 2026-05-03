@@ -4,13 +4,18 @@ import edu.cs4b.client.MessageListener;
 import edu.cs4b.client.RouterClient;
 import edu.cs4b.protocol.EmojiMessage;
 import edu.cs4b.protocol.JoinMessage;
+import edu.cs4b.protocol.MakeMoveMessage;
 import edu.cs4b.protocol.Message;
+import edu.cs4b.protocol.MoveAcceptedMessage;
 import edu.cs4b.protocol.MoveMessage;
+import edu.cs4b.protocol.MoveRejectedMessage;
+import edu.cs4b.protocol.NextTurnMessage;
 import edu.cs4b.protocol.TextMessage;
 
 import java.io.IOException;
 import java.util.Scanner;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Example player client that demonstrates the full message-passing lifecycle.
@@ -62,8 +67,14 @@ public class PlayerMain {
 
         RouterClient client = new RouterClient(host, port);
 
+        // thread-safe boolean flag for whether it's the player's turn or not.
+        AtomicBoolean isPlayerTurn = new AtomicBoolean(true);
+
         try {
             client.connect();
+            
+            // final is used here so that the value of the playerId can be used in the MessageListener.
+            final String playerId = name;
 
             // A single listener that handles all message types on any channel.
             // This is polymorphism in action — different Message subclasses
@@ -73,12 +84,28 @@ public class PlayerMain {
                 String prefix = "[" + channel + "] ";
                 if (message instanceof JoinMessage join) {
                     System.out.println(prefix + senderId + " joined: " + join.getPlayerName());
-                } else if (message instanceof MoveMessage move) {
-                    System.out.println(prefix + senderId + " played: (" + move.getRow() + ", " + move.getCol() + ")");
                 } else if (message instanceof EmojiMessage emoji) {
                     System.out.println(prefix + senderId + " sent: " + emoji.render());
                 } else if (message instanceof TextMessage text) {
                     System.out.println(prefix + senderId + " says: " + text.getText());
+                } else if (message instanceof MoveAcceptedMessage moveAccepted) {
+                    System.out.println(prefix + senderId + " played: (" + moveAccepted.getRow() + ", " + moveAccepted.getCol() + ")");
+                    if (moveAccepted.getGameStatus().equals("Ongoing")) {
+                        // TODO: implement players switching turns (need to determine initial turn first on start of game; "Join Game" flow)
+                        System.out.println("Next Turn"); // temp dummy message
+                        // if (moveAccepted.getNextTurn().equals(playerId)) {
+                        //     System.out.println("Your turn!");
+                        //     isPlayerTurn.compareAndSet(false, true);
+                        // } 
+                        // else {
+                        //     isPlayerTurn.compareAndSet(true, false);
+                        // } 
+                        // TODO: probably need different cases for the different end game states?
+                    } else {
+                        System.out.println("Game Completed!");
+                    }
+                } else if (message instanceof MoveRejectedMessage moveRejected) {
+                    System.out.println(prefix + senderId + " move invalid: (" + moveRejected.getRow() + ", " + moveRejected.getCol() + ")");
                 } else {
                     System.out.println(prefix + senderId + " sent: " + message);
                 }
@@ -115,11 +142,18 @@ public class PlayerMain {
                         if (currentGame[0] == null) {
                             System.out.println("Not in a game. Use: join <gameId>");
                             continue;
+                        } else if (!isPlayerTurn.get()) {
+                            System.out.println("It is not your turn.");
+                            continue;
                         }
                         String[] parts = line.split("\\s+");
                         int row = Integer.parseInt(parts[1]);
                         int col = Integer.parseInt(parts[2]);
-                        client.send(currentGame[0], new MoveMessage(row, col));
+
+                        // grab gameId from currentGame[0]
+                        String gameId = currentGame[0].substring(6).trim();
+                        // send MakeMoveMessage to GameController
+                        client.send("/game/", new MakeMoveMessage(gameId, name, row, col));
 
                     } else if (line.startsWith("emoji ")) {
                         String[] parts = line.split("\\s+");
