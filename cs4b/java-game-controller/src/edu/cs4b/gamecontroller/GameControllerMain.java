@@ -22,6 +22,8 @@ public class GameControllerMain {
     private static final int DEFAULT_PORT = 4000;
     private static final String ALL_GAME_CHANNELS = "/game/*";
 
+    // TODO: possible ConcurrentHashMap for grid-gameId pairs ?
+
     public static void main(String[] args) {
         String host = DEFAULT_HOST;
         int port = DEFAULT_PORT;
@@ -48,8 +50,14 @@ public class GameControllerMain {
 
                 if (message instanceof JoinMessage join) {
                     System.out.println("Player joined: " + join.getPlayerName());
-                } else if (message instanceof MoveMessage move) {
-                    System.out.println("Move: row " + move.getRow() + ", col " + move.getCol());
+                } else if (message instanceof MakeMoveMessage move) {
+                    // check if the move is valid
+                    if (checkIfMoveValid(move.getGameId(), move.getRow(), move.getColumn())) {
+                        // if it's valid, update the game board
+                        updateGameBoard(move.getGameId(), move.getRow(), move.getColumn());
+                        // send the MoveAcceptedMessage to the players
+                    }
+                    System.out.println("Move: row " + move.getRow() + ", col " + move.getColumn());
                 } else if (message instanceof TextMessage text) {
                     System.out.println("Text: " + text.getText());
                 } else {
@@ -77,5 +85,15 @@ public class GameControllerMain {
         } catch (InterruptedException e) {
             System.out.println("GameController stopped.");
         }
+    }
+
+    private static boolean checkIfMoveValid(String gameId, int row, int column) {
+        // TODO do an actual validation using gameId's associated game board to check if a move is already there
+        return true;
+    }
+
+    private static void updateGameBoard(String gameId, int row, int column) {
+        // update game board associated with gameId
+        return;
     }
 }
