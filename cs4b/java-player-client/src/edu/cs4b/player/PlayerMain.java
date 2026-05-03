@@ -2,7 +2,10 @@ package edu.cs4b.player;
 
 import edu.cs4b.client.MessageListener;
 import edu.cs4b.client.RouterClient;
+import edu.cs4b.protocol.EmojiMessage;
+import edu.cs4b.protocol.JoinMessage;
 import edu.cs4b.protocol.Message;
+import edu.cs4b.protocol.MoveMessage;
 import edu.cs4b.protocol.TextMessage;
 
 import java.io.IOException;
