@@ -26,8 +26,10 @@ public class GameControllerMain {
     private static final int DEFAULT_PORT = 4000;
     private static final String ALL_GAME_CHANNELS = "/game/*";
     private static final String PLAYERS = "/players";
+    private static final String PLAYER_X = "X";
+    private static final String PLAYER_O = "O"; 
 
-    private ConcurrentHashMap<String, Game> games = new ConcurrentHashMap<>();
+    private static ConcurrentHashMap<String, Game> games = new ConcurrentHashMap<>();
 
     public static void main(String[] args) {
         String host = DEFAULT_HOST;
@@ -95,17 +97,23 @@ public class GameControllerMain {
 
     private static void makeMoveMessageReceived(RouterClient client, String channel, MakeMoveMessage move) {
         try {
-            // check if the move is valid
-            if (checkIfMoveValid(move.getGameId(), move.getRow(), move.getColumn())) {
+            // grab the game and the symbol corresponding to the move made
+            Game game = games.get(move.getGameId());
+            String symbol = game.getPlayers().get(move.getPlayerId());
+
+            // proceed only if the move is valid, the game exists, and the symbol is an X or O
+            if (checkIfMoveValid(move.getGameId(), move.getRow(), move.getColumn()) && (game != null) && (symbol.equals(PLAYER_X) || symbol.equals(PLAYER_O))) {
                 // if it's valid, update the game board
-                updateGameBoard(move.getGameId(), move.getRow(), move.getColumn());
+                updateGameBoard(move.getGameId(), move.getRow(), move.getColumn(), symbol);
                 // check the state of the board
                 int boardStatus = checkGameEnd(move.getGameId());
                 // if the boardStatus returned is not 0, the game is finished
                 String statusStr;
                 // TODO: create a better status indicator
-                if (boardStatus != 0) {
-                    statusStr = "Completed";
+                if (boardStatus == 1) {
+                    statusStr = "Game Won";
+                } else if (boardStatus == -1) {
+                    statusStr = "Game Draw";
                 } else {
                     statusStr = "Ongoing";
                 }
@@ -119,6 +127,7 @@ public class GameControllerMain {
                                             "X or O", 
                                             statusStr));
                 // TODO: actually send an updated board state, whose turn is next, and the game status
+            // if any of the previous checks fail, the move is invalid and needs to be rejected
             } else {
                 // TODO: create actual reason for rejection
                 client.send(PLAYERS + move.getPlayerId(), new MoveRejectedMessage(
@@ -135,13 +144,21 @@ public class GameControllerMain {
     }
 
     private static boolean checkIfMoveValid(String gameId, int row, int column) {
-        // TODO do an actual validation using gameId's associated game board to check if a move is already there
-        return true;
+        Game game = games.get(gameId);
+        boolean isValid = false;
+        if (game != null) {
+            isValid = game.getValueAtPosition(row, column) == 0;
+        }
+        return isValid;
     }
 
-    private static void updateGameBoard(String gameId, int row, int column) {
-        // TODO: update game board associated with gameId
-        return;
+    private static void updateGameBoard(String gameId, int row, int column, String symbol) {
+        Game game = games.get(gameId);
+        if (game != null) {
+            game.updateBoard(row, column, symbol);
+        } else {
+            System.err.println("Game " + gameId + " does not exist");
+        }
     }
 
     // Returns the following:
