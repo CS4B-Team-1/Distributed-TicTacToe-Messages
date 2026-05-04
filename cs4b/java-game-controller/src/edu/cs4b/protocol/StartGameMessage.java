@@ -1,30 +1,18 @@
 package edu.cs4b.protocol;
-import java.util.ArrayList;
 
+
+//If you need to find the game that was just started, search the gameID in the games hashmap
 public class StartGameMessage implements Message {
-    private String playerId;
+
     private String gameId;
-    private String firstTurn;
-    private String initialBoard;
-    
-    public StartGameMessage(String playerId, String gameId, String firstTurn, ArrayList<Integer> initialBoard) {
-        this.playerId = playerId;
+
+    public StartGameMessage(String gameId) {
+
         this.gameId = gameId;
     }
 
-    public String getPlayerId() {
-        return this.playerId;
-    }
-    
     public String getGameId() {
         return this.gameId;
     }
 
-    public String getFirstTurn() {
-        return this.firstTurn;
-    }
-    
-    public String getInitialBoard() {
-        return this.initialBoard;
-    }
 }

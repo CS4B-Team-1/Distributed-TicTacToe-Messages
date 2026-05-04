@@ -155,7 +155,7 @@ public class PlayerMain {
                         int count = Integer.parseInt(parts[2]);
                         client.send(LOBBY, new EmojiMessage(emoji, count));
 
-                    } else if (line.startsWith("join ")) {
+                    } else if (line.startsWith("join ")) {  // JOIN GAME USERFLOW
                         String gameId = line.substring(5).trim();
                         String gameChannel = "/game/" + gameId;
                         client.subscribe(gameChannel, listener);

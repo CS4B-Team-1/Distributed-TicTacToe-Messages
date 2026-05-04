@@ -108,7 +108,7 @@ public class GameControllerMain {
             - search for game, if it doesnt exist, create a new one
             - assign symbol (X first, then O), and add player to the game
             - Notify everyone in the game channel that someone joined
-            - If game is full, send a StartGameMessage to the router with initial game state (whose turn it is, empty board, etc.)
+            - If game is full, send a StartGameMessage to the router
     */
     private static void handleJoinGame(RouterClient client, String channel, JoinGameMessage join) {
 
@@ -131,16 +131,9 @@ public class GameControllerMain {
                 new JoinMessage(playerId)
             );
 
-            // Start game if full, with initial game state (whose turn it is, empty board, etc.)
+            // Start game if full (by the way StartGameMessage only needs gameID as its attribute)
             if (game.getPlayers().size() == 2) {
-                client.send(channel,
-                    new StartGameMessage(
-                        playerId,
-                        gameId,
-                        game.getCurrentTurn(),
-                        new java.util.ArrayList<>(game.getBoard())
-                    )
-                );
+                client.send(channel, new StartGameMessage(gameId));
             }
 
         } catch (IOException e) {
