@@ -155,7 +155,9 @@ public class PlayerMain {
                         // send MakeMoveMessage to GameController
                         client.send("/game/", new MakeMoveMessage(gameId, name, row, col));
 
-                    } else if (line.startsWith("emoji ")) {
+                    }/*else if(){//do this
+
+                    }*/else if (line.startsWith("emoji ")) {
                         String[] parts = line.split("\\s+");
                         String emoji = parts[1];
                         int count = Integer.parseInt(parts[2]);

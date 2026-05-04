@@ -2,13 +2,9 @@ package edu.cs4b.gamecontroller;
 
 import edu.cs4b.client.MessageListener;
 import edu.cs4b.client.RouterClient;
-import edu.cs4b.protocol.JoinMessage;
-import edu.cs4b.protocol.MakeMoveMessage;
-import edu.cs4b.protocol.Message;
-import edu.cs4b.protocol.MoveAcceptedMessage;
-import edu.cs4b.protocol.MoveMessage;
-import edu.cs4b.protocol.MoveRejectedMessage;
-import edu.cs4b.protocol.TextMessage;
+import edu.cs4b.protocol.*;
+import edu.cs4b.gamecontroller.Game;
+import java.util.UUID;
 
 import java.io.IOException;
 import java.util.Random;
@@ -63,7 +59,9 @@ public class GameControllerMain {
                     makeMoveMessageReceived(client, channel, move);
                 } else if (message instanceof TextMessage text) {
                     System.out.println("Text: " + text.getText());
-                } else {
+                } else if (message instanceof CreateGameMessage game) {
+                    createGame(game);
+                }else {
                     System.out.println("Message: " + message);
                 }
 
@@ -88,6 +86,11 @@ public class GameControllerMain {
         } catch (InterruptedException e) {
             System.out.println("GameController stopped.");
         }
+    }
+
+    private static void createGame(CreateGameMessage message){
+        String playerID = message.getPlayerId();
+        //Game("Game-" + UUID.randomUUID().toString().substring(0, 4), playerID);
     }
 
     private static void makeMoveMessageReceived(RouterClient client, String channel, MakeMoveMessage move) {
