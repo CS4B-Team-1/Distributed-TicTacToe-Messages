@@ -7,6 +7,7 @@ import edu.cs4b.gamecontroller.Game;
 import java.util.UUID;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -27,7 +28,7 @@ public class GameControllerMain {
     private static final String ALL_GAME_CHANNELS = "/game/*";
     private static final String PLAYERS = "/players";
 
-    private ConcurrentHashMap<String, Game> games = new ConcurrentHashMap<>();
+    private static ConcurrentHashMap<String, Game> games = new ConcurrentHashMap<>();
 
     public static void main(String[] args) {
         String host = DEFAULT_HOST;
@@ -59,8 +60,8 @@ public class GameControllerMain {
                     makeMoveMessageReceived(client, channel, move);
                 } else if (message instanceof TextMessage text) {
                     System.out.println("Text: " + text.getText());
-                } else if (message instanceof CreateGameMessage game) {
-                    createGame(game);
+                } else if (message instanceof JoinGameMessage joinGame) {
+                    handleJoinGame(client, channel, joinGame);
                 }else {
                     System.out.println("Message: " + message);
                 }
@@ -88,9 +89,65 @@ public class GameControllerMain {
         }
     }
 
-    private static void createGame(CreateGameMessage message){
-        String playerID = message.getPlayerId();
-        //Game("Game-" + UUID.randomUUID().toString().substring(0, 4), playerID);
+    /*
+        Private helper for handleJoinGame()
+    */
+    private static Game createGame(String gameId, String playerId) {
+
+        Game game = new Game(gameId, playerId);
+        games.put(gameId, game);
+
+        System.out.println("Game created: " + gameId + " by " + playerId);
+
+        return game;
+
+    }
+
+    /*
+        Handler for when a player sends a JoinGameMessage to join a game.
+            - search for game, if it doesnt exist, create a new one
+            - assign symbol (X first, then O), and add player to the game
+            - Notify everyone in the game channel that someone joined
+            - If game is full, send a StartGameMessage to the router with initial game state (whose turn it is, empty board, etc.)
+    */
+    private static void handleJoinGame(RouterClient client, String channel, JoinGameMessage join) {
+
+        String playerId = join.getPlayerId();
+        String gameId = join.getGameId();
+
+        try {
+
+            // search for existing game, if it doesnt exist, create a new one
+            Game game = games.get(gameId);
+            if (game == null) game = createGame(gameId, playerId);
+
+            // Assign symbol (X first, then O),
+            // and add player to the game
+            String symbol = (game.getPlayers().size() == 0) ? "X" : "O";
+            game.addPlayer(playerId, symbol);
+
+            // Notify everyone in the game channel
+            client.send(channel,
+                new JoinMessage(playerId)
+            );
+
+            // Start game if full, with initial game state (whose turn it is, empty board, etc.)
+            if (game.getPlayers().size() == 2) {
+                client.send(channel,
+                    new StartGameMessage(
+                        playerId,
+                        gameId,
+                        game.getCurrentTurn(),
+                        new java.util.ArrayList<>(game.getBoard())
+                    )
+                );
+            }
+
+        } catch (IOException e) {
+            System.err.println("Join game error: " + e.getMessage());
+            e.printStackTrace();
+        }
+
     }
 
     private static void makeMoveMessageReceived(RouterClient client, String channel, MakeMoveMessage move) {
