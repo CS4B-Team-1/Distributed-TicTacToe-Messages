@@ -4,7 +4,7 @@ package edu.cs4b.protocol;
  * A simple text message. Useful for chat, error descriptions,
  * and testing the framework.
  */
-public class TextMessage implements Message {
+public class  TextMessage implements Message {
 
     private static final long serialVersionUID = 1L;
 
