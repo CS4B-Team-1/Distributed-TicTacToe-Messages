@@ -4,6 +4,8 @@ import edu.cs4b.client.MessageListener;
 import edu.cs4b.client.RouterClient;
 import edu.cs4b.protocol.*;
 import edu.cs4b.gamecontroller.Game;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 import java.io.IOException;
@@ -25,6 +27,8 @@ public class GameControllerMain {
     private static final int DEFAULT_PORT = 4000;
     private static final String ALL_GAME_CHANNELS = "/game/*";
     private static final String PLAYERS = "/players";
+    private Map<String,Game> games = new HashMap<>();
+    private int gameCount = 0;
 
     // TODO: possible ConcurrentHashMap for grid-gameId pairs ?
 
@@ -59,7 +63,7 @@ public class GameControllerMain {
                 } else if (message instanceof TextMessage text) {
                     System.out.println("Text: " + text.getText());
                 } else if (message instanceof CreateGameMessage game) {
-                    createGame(game);
+                    createGame(game, client, channel);
                 }else {
                     System.out.println("Message: " + message);
                 }
@@ -87,9 +91,10 @@ public class GameControllerMain {
         }
     }
 
-    private static void createGame(CreateGameMessage message){
-        String playerID = message.getPlayerId();
-        //Game("Game-" + UUID.randomUUID().toString().substring(0, 4), playerID);
+    private static void createGame(CreateGameMessage message, RouterClient client, String channel) throws IOException {
+        Game game = new Game(message.getGameId(), message.getPlayerId());
+        games.put(message.getGameId(), game);
+        client.send(channel + message.getGameId(), new GameCreatedMessage(message.getGameId(), channel, "online"));
     }
 
     private static void makeMoveMessageReceived(RouterClient client, String channel, MakeMoveMessage move) {
@@ -110,7 +115,7 @@ public class GameControllerMain {
                 }
                 // send the MoveAcceptedMessage to the players
                 client.send(channel + move.getGameId(), new MoveAcceptedMessage(
-                                            move.getGameId(), 
+                                            move.getGameId(),
                                             move.getPlayerId(), 
                                             move.getRow(), 
                                             move.getColumn(), 
