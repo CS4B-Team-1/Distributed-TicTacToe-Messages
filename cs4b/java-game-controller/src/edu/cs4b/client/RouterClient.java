@@ -186,7 +186,7 @@ public class RouterClient {
         }
     }
 
-    private void handleEnvelope(Envelope envelope) {
+    private void handleEnvelope(Envelope envelope) throws IOException {
         switch (envelope.getType()) {
             case MESSAGE -> {
                 String channel = envelope.getChannel();
@@ -203,7 +203,7 @@ public class RouterClient {
                     // is a wildcard pattern that matches the channel.
                     if (key.equals(channel) || matchesWildcard(key, channel)) {
                         for (MessageListener listener : entry.getValue()) {
-                            listener.onMessage(channel, senderId, payload);
+                            listener.onMessage(channel, senderId, payload);;
                         }
                     }
                 }
