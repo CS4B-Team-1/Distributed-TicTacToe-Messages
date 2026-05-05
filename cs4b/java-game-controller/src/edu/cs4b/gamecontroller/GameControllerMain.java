@@ -235,7 +235,7 @@ public class GameControllerMain {
                 } else if (boardStatus == GameStatus.INVALID_STATUS){
                     sendMoveRejection(client, move, "Game status is currently invalid.");
                 } else {    
-                    // TODO: proceed with win/lose/draw
+                    winningMessages(client, boardStatus, move.getGameId());
                 }
 
             // if any of the previous checks fail, the move is invalid and needs to be rejected
@@ -288,5 +288,63 @@ public class GameControllerMain {
                 return GameStatus.PLAYER_X_WIN;
             } else return GameStatus.PLAYER_O_WIN;
         } else return GameStatus.INVALID_STATUS;
+    }
+
+
+
+    // Game End flow:
+
+    // Handle cleanup of the game
+    //  - Delete the game
+    //  - Unsubscribe players from the game
+
+    // winningMessages function
+    // Sends out game draw, won, over messages
+    private static void winningMessages(RouterClient client, GameStatus status, String gameId) {
+        // String variable to send message to Player O
+        String playerO = games.get(gameId).getPlayers().get("O");
+        // String variable to send message to Player X
+        String playerX = games.get(gameId).getPlayers().get("X");
+        // Check if GameStatus a draw
+        if (status == GameStatus.TIE_GAME) {
+            // Send GameDrawMessage to both players
+            try {
+                client.send(client.getClientId(), new GameDrawMessage(gameId, ""));
+            } catch (IOException e) {
+                System.out.println("ERROR: Failed to send GameDrawMessage!");
+            }
+                // Check if GameStatus a Player X win
+        } else if (status == GameStatus.PLAYER_X_WIN) {
+            // Send GameWonMessage to Player X
+            try {
+                client.send(playerX, new GameWonMessage(gameId, "", "", ""));
+            } catch (IOException e) {
+                System.out.println("ERROR: Failed to send GameWonMessage!");
+            }
+            // Send GameLostMessage to Player O
+            try {
+                client.send(playerO, new GameOverMessage(gameId, "", ""));
+            } catch (IOException e) {
+                System.out.println("ERROR: Failed to send GameOverMessage!");
+            }
+            // Check if GameStatus a Player O win
+        } else if (status == GameStatus.PLAYER_O_WIN) {
+            // Send GameWonMessage to Player O
+            try {
+                client.send(playerO, new GameWonMessage(gameId, "", "", ""));
+            } catch (IOException e) {
+                System.out.println("ERROR: Failed to send GameWonMessage!");
+            }
+            // Send GameLostMessage to Player O
+            try {
+                client.send(playerX, new GameOverMessage(gameId, "", ""));
+            } catch (IOException e) {
+                System.out.println("ERROR: Failed to send GameOverMessage!");
+            }
+        }
+
+        // Remove game from concurrent hash map
+        games.remove(gameId);
+        return;
     }
 }

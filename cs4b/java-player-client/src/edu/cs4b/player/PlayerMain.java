@@ -92,6 +92,33 @@ public class PlayerMain {
                     }
                 } else if (message instanceof MoveRejectedMessage moveRejected) {
                     System.out.println(prefix + senderId + " move invalid: (" + moveRejected.getRow() + ", " + moveRejected.getCol() + ")\nReason: " + moveRejected.getReason());
+                } else if (message instanceof GameDrawMessage) {
+                    // Game Draw message received
+                    // Print out Game Draw message, disconnect player from client
+                    System.out.println("Game Draw!");
+                    try {
+                        client.unsubscribe(channel);
+                    } catch (IOException e) {
+                        System.out.println("ERROR: Failed unsubscribing!");
+                    }
+                } else if (message instanceof GameWonMessage) {
+                    // Game Won message received
+                    // Print out Game Won message, disconnect player from client
+                    System.out.println("Congratulations, you win!");
+                    try {
+                        client.unsubscribe(channel);
+                    } catch (IOException e) {
+                        System.out.println("ERROR: Failed unsubscribing!");
+                    }
+                } else if (message instanceof GameOverMessage) {
+                    // Game Over message received
+                    // Print out Game Over message, disconnect player from client
+                    System.out.println("Sorry, You Lost!");
+                    try {
+                        client.unsubscribe(channel);
+                    } catch (IOException e) {
+                        System.out.println("ERROR: Failed unsubscribing!");
+                    }
                 } else {
                     System.out.println(prefix + senderId + " sent: " + message);
                 }
