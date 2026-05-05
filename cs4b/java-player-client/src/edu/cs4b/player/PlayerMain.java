@@ -86,7 +86,7 @@ public class PlayerMain {
                     if (status == GameStatus.GAME_ONGOING) {
                         if (moveAccepted.getNextTurn().equals(playerId))
                             System.out.println("Your Turn!");
-                        else System.out.println("Waiting for other player's move");
+                        else System.out.println("Waiting for " + moveAccepted.getNextTurn() + "'s move");
                     } else {
                         // TODO: complete "Game End" flow
                     }
@@ -162,7 +162,7 @@ public class PlayerMain {
                         currentGame[0] = gameChannel;
                         System.out.println("Joined " + gameChannel);
 
-                    }else if (line.startsWith("create ")){
+                    } else if (line.startsWith("create ")){
                         String gameId = line.substring(7).trim();
                         String gameChannel = "/game/" + gameId;
 

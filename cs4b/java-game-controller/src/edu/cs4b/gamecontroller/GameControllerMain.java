@@ -187,7 +187,7 @@ public class GameControllerMain {
             String nextPlayerId = "";
             // just gets the first instance of a different player ID from the one who made the move
             for (String player: players) {
-                if (player != move.getPlayerId()) {
+                if (!player.equals(move.getPlayerId())) {
                     nextPlayerId = player;
                     break;
                 }
