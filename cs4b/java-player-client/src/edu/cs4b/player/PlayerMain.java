@@ -1,16 +1,6 @@
 package edu.cs4b.player;
 
-import edu.cs4b.client.MessageListener;
-import edu.cs4b.client.RouterClient;
-import edu.cs4b.protocol.EmojiMessage;
-import edu.cs4b.protocol.JoinMessage;
-import edu.cs4b.protocol.MakeMoveMessage;
-import edu.cs4b.protocol.Message;
-import edu.cs4b.protocol.MoveAcceptedMessage;
-import edu.cs4b.protocol.MoveMessage;
-import edu.cs4b.protocol.MoveRejectedMessage;
-import edu.cs4b.protocol.NextTurnMessage;
-import edu.cs4b.protocol.TextMessage;
+import edu.cs4b.protocol.*;
 
 import java.io.IOException;
 import java.util.Scanner;
@@ -101,11 +91,21 @@ public class PlayerMain {
                         //     isPlayerTurn.compareAndSet(true, false);
                         // } 
                         // TODO: probably need different cases for the different end game states?
+                        // If end game state, unsubscribe player from the game
+                        client.unsubscribe("/game/" + gameId);
                     } else {
                         System.out.println("Game Completed!");
                     }
                 } else if (message instanceof MoveRejectedMessage moveRejected) {
                     System.out.println(prefix + senderId + " move invalid: (" + moveRejected.getRow() + ", " + moveRejected.getCol() + ")");
+                } else if (message instanceof GameWonMessage gameWon) {
+                    System.out.println("Game Won!");
+                    // Output name of the winner
+                } else if (message instanceof GameOverMessage gameOver) {
+                    System.out.println("Game Lost!");
+                    // Output name of the loser
+                } else if (message instanceof GameOverMessage gameDraw) {
+                    System.out.println("Game Draw!");
                 } else {
                     System.out.println(prefix + senderId + " sent: " + message);
                 }
