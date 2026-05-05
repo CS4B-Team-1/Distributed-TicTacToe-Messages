@@ -9,10 +9,11 @@ public class CreateGameMessage implements Message {
         this.gameId = gameId;
     }
 
+    public String getGameId() {
+        return this.gameId;
+    }
+
     public String getPlayerId() {
         return this.playerId;
-    }
-    public String getGameId(){
-        return this.gameId;
     }
 }

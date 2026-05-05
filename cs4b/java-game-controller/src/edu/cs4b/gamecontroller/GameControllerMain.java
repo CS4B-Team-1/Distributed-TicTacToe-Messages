@@ -5,10 +5,12 @@ import edu.cs4b.client.RouterClient;
 import edu.cs4b.protocol.*;
 import edu.cs4b.gamecontroller.Game;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -63,6 +65,8 @@ public class GameControllerMain {
                     System.out.println("Text: " + text.getText());
                 } else if (message instanceof CreateGameMessage game) {
                     createGame(game, client, channel);
+                } else if (message instanceof JoinGameMessage joinGame) {
+                    handleJoinGame(client, channel, joinGame);
                 }else {
                     System.out.println("Message: " + message);
                 }
@@ -90,10 +94,68 @@ public class GameControllerMain {
         }
     }
 
-    private static void createGame(CreateGameMessage message, RouterClient client, String channel) throws IOException {
-        Game game = new Game(message.getGameId(), message.getPlayerId());
-        games.put(message.getGameId(), game);
-        client.send(channel + message.getGameId(), new GameCreatedMessage(message.getGameId(), channel, "online"));
+    /*
+        Private helper for handleJoinGame()
+    */
+    private static Game createGame(CreateGameMessage message, RouterClient client, String channel) {
+        try {
+            Game game = new Game(message.getGameId(), message.getPlayerId());
+            games.put(message.getGameId(), game);
+            client.send(PLAYERS + "/" + message.getPlayerId(), new GameCreatedMessage(message.getGameId(), channel, "online"));
+
+            System.out.println("Game created: " + message.getGameId() + " by " + message.getPlayerId());
+
+            return game;
+        } catch (IOException e) {
+            System.err.println("Error while creating game");
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /*
+        Handler for when a player sends a JoinGameMessage to join a game.
+            - search for game, if it doesnt exist, create a new one
+            - assign symbol (X first, then O), and add player to the game
+            - Notify everyone in the game channel that someone joined
+            - If game is full, send a StartGameMessage to the router
+    */
+    private static void handleJoinGame(RouterClient client, String channel, JoinGameMessage join) {
+
+        String playerId = join.getPlayerId();
+        String gameId = join.getGameId();
+
+        try {
+
+            // search for existing game, if it doesnt exist, create a new one
+            Game game = games.get(gameId);
+            if (game == null) game = createGame(new CreateGameMessage(join.getPlayerId(), join.getGameId()), client, channel);
+            if (game == null) throw new IOException("Error while creating game");
+            // Assign symbol (X first, then O),
+            // and add player to the game
+            // TODO: Game() already creates the first player as "X", second player should be "O"; this overwrites the first player's symbol to be "O".
+
+            // String symbol = (game.getPlayers().size() == 0) ? "X" : "O";
+            if (!game.getPlayers().containsKey(join.getPlayerId())) {
+                String symbol = "O";
+                game.addPlayer(playerId, symbol);
+            }
+    
+            // Notify everyone in the game channel
+            client.send(channel,
+                new JoinMessage(playerId)
+            );
+
+            // Start game if full (by the way StartGameMessage only needs gameID as its attribute)
+            if (game.getPlayers().size() == 2) {
+                client.send(channel, new StartGameMessage(gameId));
+            }
+
+        } catch (IOException e) {
+            System.err.println("Join game error: " + e.getMessage());
+            e.printStackTrace();
+        }
+
     }
 
     private static void makeMoveMessageReceived(RouterClient client, String channel, MakeMoveMessage move) {

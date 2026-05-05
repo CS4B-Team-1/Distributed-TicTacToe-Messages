@@ -2,15 +2,7 @@ package edu.cs4b.player;
 
 import edu.cs4b.client.MessageListener;
 import edu.cs4b.client.RouterClient;
-import edu.cs4b.protocol.EmojiMessage;
-import edu.cs4b.protocol.JoinMessage;
-import edu.cs4b.protocol.MakeMoveMessage;
-import edu.cs4b.protocol.Message;
-import edu.cs4b.protocol.MoveAcceptedMessage;
-import edu.cs4b.protocol.MoveMessage;
-import edu.cs4b.protocol.MoveRejectedMessage;
-import edu.cs4b.protocol.NextTurnMessage;
-import edu.cs4b.protocol.TextMessage;
+import edu.cs4b.protocol.*;
 
 import java.io.IOException;
 import java.util.Scanner;
@@ -162,10 +154,14 @@ public class PlayerMain {
                         int count = Integer.parseInt(parts[2]);
                         client.send(LOBBY, new EmojiMessage(emoji, count));
 
-                    } else if (line.startsWith("join ")) {
+                    } else if (line.startsWith("join ")) {  // JOIN GAME USERFLOW
                         String gameId = line.substring(5).trim();
                         String gameChannel = "/game/" + gameId;
                         client.subscribe(gameChannel, listener);
+
+                        //only needed to add one line for Join_Game userflow
+                        client.send("/game/" + gameId, new JoinGameMessage(playerId, gameId));
+
                         currentGame[0] = gameChannel;
                         System.out.println("Joined " + gameChannel);
 
