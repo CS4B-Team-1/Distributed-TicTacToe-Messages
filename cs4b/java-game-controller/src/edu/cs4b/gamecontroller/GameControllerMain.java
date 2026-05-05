@@ -10,6 +10,7 @@ import java.util.UUID;
 
 import java.io.IOException;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * GameController client
@@ -30,7 +31,7 @@ public class GameControllerMain {
     private Map<String,Game> games = new HashMap<>();
     private int gameCount = 0;
 
-    // TODO: possible ConcurrentHashMap for grid-gameId pairs ?
+    private ConcurrentHashMap<String, Game> games = new ConcurrentHashMap<>();
 
     public static void main(String[] args) {
         String host = DEFAULT_HOST;
