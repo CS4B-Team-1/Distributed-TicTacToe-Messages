@@ -94,14 +94,15 @@ public class PlayerMain {
                         // } 
                         // TODO: probably need different cases for the different end game states?
                         // If end game state, unsubscribe player from the game
+                        client.unsubscribe(channel);
+                    System.out.println(prefix + senderId + " Move Accepted: (" + moveAccepted.getRow() + ", " + moveAccepted.getCol() + ") from " + moveAccepted.getPlayerId());
+                    GameStatus status = moveAccepted.getGameStatus();
+                    if (status == GameStatus.GAME_ONGOING) {
+                        if (moveAccepted.getNextTurn().equals(playerId))
+                            System.out.println("Your Turn!");
+                        else System.out.println("Waiting for other player's move");
                     } else {
-                        System.out.println("Game Completed!");
-                        // If game is completed, automatically unsubscribe player from the channel
-                        try {
-                            client.unsubscribe(channel);
-                        } catch (IOException e) {
-                            System.out.println("ERROR: Failed to unsubscribe player from channel!");
-                        }
+                        // TODO: complete "Game End" flow
                     }
                 } else if (message instanceof MoveRejectedMessage moveRejected) {
                     System.out.println(prefix + senderId + " move invalid: (" + moveRejected.getRow() + ", " + moveRejected.getCol() + ")");
@@ -120,7 +121,7 @@ public class PlayerMain {
 
             // Subscribe to the lobby channel
             client.subscribe(LOBBY, listener);
-            client.subscribe(PLAYERS + "\\" + name);
+            client.subscribe(PLAYERS + "/" + name, listener);
 
             // Announce ourselves in the lobby
             client.send(LOBBY, new JoinMessage(name));
@@ -131,6 +132,7 @@ public class PlayerMain {
             System.out.println("  say <text>           Send a chat message to /lobby");
             System.out.println("  move <row> <col>     Send a move to your game channel");
             System.out.println("  emoji <emoji> <n>    Send an emoji n times to /lobby");
+            System.out.println("  create <gameId>      Create game channel /game/<gameId>");
             System.out.println("  join <gameId>        Join game channel /game/<gameId>");
             System.out.println("  leave <gameId>       Leave game channel /game/<gameId>");
             System.out.println("  quit                 Disconnect and exit");
@@ -162,17 +164,31 @@ public class PlayerMain {
                         // send MakeMoveMessage to GameController
                         client.send("/game/", new MakeMoveMessage(gameId, name, row, col));
 
-                    }/*else if(){//do this
-
-                    }*/else if (line.startsWith("emoji ")) {
+                    }else if (line.startsWith("emoji ")) {
                         String[] parts = line.split("\\s+");
                         String emoji = parts[1];
                         int count = Integer.parseInt(parts[2]);
                         client.send(LOBBY, new EmojiMessage(emoji, count));
 
-                    } else if (line.startsWith("join ")) {
+                    } else if (line.startsWith("join ")) {  // JOIN GAME USERFLOW
                         String gameId = line.substring(5).trim();
                         String gameChannel = "/game/" + gameId;
+                        
+                        // TODO: player should probably only subscribe if they receive a JoinMessage response in the listener above
+                        client.subscribe(gameChannel, listener);
+
+                        //only needed to add one line for Join_Game userflow
+                        
+                        client.send("/game/" + gameId, new JoinGameMessage(playerId, gameId));
+
+                        currentGame[0] = gameChannel;
+                        System.out.println("Joined " + gameChannel);
+
+                    }else if (line.startsWith("create ")){
+                        String gameId = line.substring(7).trim();
+                        String gameChannel = "/game/" + gameId;
+
+                        // TODO: player should probably only subscribe if they receive a GameCreatedMessage response in the listener above
                         client.subscribe(gameChannel, listener);
                         currentGame[0] = gameChannel;
                         System.out.println("Joined " + gameChannel);

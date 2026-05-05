@@ -4,10 +4,16 @@ import edu.cs4b.client.MessageListener;
 import edu.cs4b.client.RouterClient;
 import edu.cs4b.protocol.*;
 import edu.cs4b.gamecontroller.Game;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -26,6 +32,8 @@ public class GameControllerMain {
     private static final int DEFAULT_PORT = 4000;
     private static final String ALL_GAME_CHANNELS = "/game/*";
     private static final String PLAYERS = "/players";
+    private static final String PLAYER_X = "X";
+    private static final String PLAYER_O = "O";
 
     private static ConcurrentHashMap<String, Game> games = new ConcurrentHashMap<>();
 
@@ -60,7 +68,9 @@ public class GameControllerMain {
                 } else if (message instanceof TextMessage text) {
                     System.out.println("Text: " + text.getText());
                 } else if (message instanceof CreateGameMessage game) {
-                    createGame(game);
+                    createGame(game, client, channel);
+                } else if (message instanceof JoinGameMessage joinGame) {
+                    handleJoinGame(client, channel, joinGame);
                 }else {
                     System.out.println("Message: " + message);
                 }
@@ -88,47 +98,171 @@ public class GameControllerMain {
         }
     }
 
-    private static void createGame(CreateGameMessage message){
-        String playerID = message.getPlayerId();
-        //Game("Game-" + UUID.randomUUID().toString().substring(0, 4), playerID);
+    /*
+        Private helper for handleJoinGame()
+    */
+    private static Game createGame(CreateGameMessage message, RouterClient client, String channel) {
+        try {
+            Game game = new Game(message.getGameId(), message.getPlayerId());
+            games.put(message.getGameId(), game);
+            client.send(PLAYERS + "/" + message.getPlayerId(), new GameCreatedMessage(message.getGameId(), channel, "online"));
+
+            System.out.println("Game created: " + message.getGameId() + " by " + message.getPlayerId());
+
+            return game;
+        } catch (IOException e) {
+            System.err.println("Error while creating game");
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /*
+        Handler for when a player sends a JoinGameMessage to join a game.
+            - search for game, if it doesnt exist, create a new one
+            - assign symbol (X first, then O), and add player to the game
+            - Notify everyone in the game channel that someone joined
+            - If game is full, send a StartGameMessage to the router
+    */
+    private static void handleJoinGame(RouterClient client, String channel, JoinGameMessage join) {
+
+        String playerId = join.getPlayerId();
+        String gameId = join.getGameId();
+
+        try {
+
+            // search for existing game, if it doesnt exist, create a new one
+            Game game = games.get(gameId);
+            if (game == null) game = createGame(new CreateGameMessage(join.getPlayerId(), join.getGameId()), client, channel);
+            if (game == null) throw new IOException("Error while creating game");
+            // Assign symbol (X first, then O),
+            // and add player to the game
+            // TODO: Game() already creates the first player as "X", second player should be "O"; this overwrites the first player's symbol to be "O".
+
+            // String symbol = (game.getPlayers().size() == 0) ? "X" : "O";
+            if (!game.getPlayers().containsKey(join.getPlayerId())) {
+                String symbol = "O";
+                game.addPlayer(playerId, symbol);
+            }
+    
+            // Notify everyone in the game channel
+            client.send(channel,
+                new JoinMessage(playerId)
+            );
+
+            // Start game if full (by the way StartGameMessage only needs gameID as its attribute)
+            if (game.getPlayers().size() == 2) {
+                client.send(channel, new StartGameMessage(gameId));
+            }
+
+        } catch (IOException e) {
+            System.err.println("Join game error: " + e.getMessage());
+            e.printStackTrace();
+        }
+
     }
 
     private static void makeMoveMessageReceived(RouterClient client, String channel, MakeMoveMessage move, ConcurrentHashMap<String, Game> game) {
         try {
-            // check if the move is valid
-            if (checkIfMoveValid(move.getGameId(), move.getRow(), move.getColumn())) {
-                // if it's valid, update the game board
-                updateGameBoard(move.getGameId(), move.getRow(), move.getColumn());
-                // check the state of the board
-                int boardStatus = checkGameEnd(move.getGameId());
-                // if the boardStatus returned is not 0, the game is finished
-                String statusStr;
-                // TODO: create a better status indicator
-                if (boardStatus != 0) {
-                    statusStr = "Completed";
-                    // Call winnerMessages function with boardStatus int
-                    winnerMessages(client, move.getGameId(), channel, games, boardStatus);
-                } else {
-                    statusStr = "Ongoing";
+            // grab the game and the symbol corresponding to the move made
+            Game game = games.get(move.getGameId());
+
+            // if the game is null, no game exists for that game ID
+            if (game == null) {
+                sendMoveRejection(client, move, "Game does not exist for game ID " + move.getGameId() + ".");
+                return;
+            }
+
+            // get a list of players from the game
+            String symbol = game.getPlayers().get(move.getPlayerId());
+            List<String> players = new ArrayList<>(game.getPlayers().values());
+
+            // check if the given move's player is in the list of players
+            if (!players.contains(move.getPlayerId())) {
+                sendMoveRejection(client, move, "You are not a player in this game.");
+                return;
+            }
+
+            // grab the player ID of the other player
+            String nextPlayerId = "";
+            // just gets the first instance of a different player ID from the one who made the move
+            for (String player: players) {
+                if (move.getPlayerId() != move.getPlayerId()) {
+                    nextPlayerId = player;
+                    break;
                 }
-                // send the MoveAcceptedMessage to the players
-                client.send(channel + move.getGameId(), new MoveAcceptedMessage(
-                                            move.getGameId(), 
-                                            move.getPlayerId(), 
-                                            move.getRow(), 
-                                            move.getColumn(), 
-                                            "board-state-here",
-                                            "X or O", 
-                                            statusStr));
-                // TODO: actually send an updated board state, whose turn is next, and the game status
+            }
+
+            // proceed only if the following conditions are met:
+            // - the player is in the list of the game's players
+            // - there is a "next Player" (second player)
+            // - the player symbol is either an X or O
+            // - move is valid (an empty spot on the board)
+            // - it's the move's player's turn
+            String reason = "";
+            boolean success = false;
+            if (!players.contains(move.getPlayerId()))
+                reason = "You are not a player in this game.";
+            else if (nextPlayerId.isEmpty())
+                reason = "No second player.";
+            else if (!symbol.equals(PLAYER_X) && !symbol.equals(PLAYER_O))
+                reason = "Invalid player symbol.";
+            else if (game.getCurrentTurn() != move.getPlayerId())
+                reason = "Not currently your turn. Current player's turn: " + game.getCurrentTurn();
+            else if (!checkIfMoveValid(move.getGameId(), move.getRow(), move.getColumn()))
+                reason = "Invalid move at " + move.getRow() + move.getColumn() + ".";
+            else
+                success = true;
+
+            if (success) {
+                // if it's valid, update the game board
+                updateGameBoard(move.getGameId(), move.getRow(), move.getColumn(), symbol);
+                // check the state of the board
+                GameStatus boardStatus = checkGameEnd(move.getGameId());
+
+                // checks if the game is ongoing AND does a compare & set for the next turn's player ID
+                if ((boardStatus == GameStatus.GAME_ONGOING) && game.setCurrentTurn(move.getPlayerId(), nextPlayerId)) {
+                    // send the MoveAcceptedMessage to the players
+                    client.send(channel + move.getGameId(), new MoveAcceptedMessage(
+                                                move.getGameId(), 
+                                                move.getPlayerId(), 
+                                                move.getRow(), 
+                                                move.getColumn(), 
+                                                game.getBoard(),
+                                                nextPlayerId, 
+                                                boardStatus));
+                } else if (boardStatus == GameStatus.INVALID_STATUS){
+                    sendMoveRejection(client, move, "Game status is currently invalid.");
+
+                // Tied game
+                } else if (boardStatus == GameStatus.TIE_GAME) {    
+                    // Send GameDrawMessage(String gameId, String finalBoard) to both players
+                    // TODO: Set finalBoard (String) to be game.getBoard() (CopyOnWriteArrayList<Integer>)
+                    client.send(channel + move.getGameId(), new GameDrawMessage(move.getGameId(), ""));
+                    // Clean up the game
+                    cleanGame(client, move.getGameId(), channel);
+                // Player O wins
+                } else if (boardStatus == GameStatus.PLAYER_O_WIN) {
+                    // Send GameWonMessage(String gameId, String winner, String winningLine, String finalBoard) to Player O
+                    client.send(game.getPlayers().get("O"), new GameWonMessage(move.getGameId(), game.getPlayers().get("X"), "", ""));
+                    // Send GameOverMessage(String gameId, String result, String finalBoard) to Player X
+                    client.send(game.getPlayers().get("X"), new GameOverMessage(move.getGameId(), "", ""));
+                    // Clean up the game
+                    cleanGame(client, move.getGameId(), channel);
+
+                // Player X wins
+                } else if (boardStatus == GameStatus.PLAYER_X_WIN) {
+                    // Send GameWonMessage(String gameId, String winner, String winningLine, String finalBoard) to Player X
+                    client.send(game.getPlayers().get("X"), new GameWonMessage(move.getGameId(), game.getPlayers().get("X"), "", ""));
+                    // Send GameOverMessage(String gameId, String result, String finalBoard) to Player O
+                    client.send(game.getPlayers().get("O"), new GameOverMessage(move.getGameId(), "", ""));
+                    // Clean up the game
+                    cleanGame(client, move.getGameId(), channel);
+                }
+
+            // if any of the previous checks fail, the move is invalid and needs to be rejected
             } else {
-                // TODO: create actual reason for rejection
-                client.send(PLAYERS + move.getPlayerId(), new MoveRejectedMessage(
-                                            move.getGameId(), 
-                                            move.getPlayerId(),
-                                            move.getRow(), 
-                                            move.getColumn(), 
-                                            "Just because lol")); 
+                sendMoveRejection(client, move, reason);
             }
         } catch (IOException e) {
             System.err.println("Error: " + e.getMessage());
@@ -136,27 +270,47 @@ public class GameControllerMain {
         }
     }
 
+    private static void sendMoveRejection(RouterClient client, MakeMoveMessage message, String reason) throws IOException {
+        client.send(PLAYERS + "/" + message.getPlayerId(), new MoveRejectedMessage(
+                                            message.getGameId(), 
+                                            message.getPlayerId(),
+                                            message.getRow(), 
+                                            message.getColumn(), 
+                                            reason)); 
+    }
+
     private static boolean checkIfMoveValid(String gameId, int row, int column) {
-        // TODO do an actual validation using gameId's associated game board to check if a move is already there
-        return true;
+        Game game = games.get(gameId);
+        boolean isValid = false;
+        if (game != null) {
+            isValid = game.getValueAtPosition(row, column) == 0;
+        }
+        return isValid;
     }
 
-    private static void updateGameBoard(String gameId, int row, int column) {
-        // TODO: update game board associated with gameId
-        return;
+    private static void updateGameBoard(String gameId, int row, int column, String symbol) {
+        Game game = games.get(gameId);
+        if (game != null) {
+            game.updateBoard(row, column, symbol);
+        } else {
+            System.err.println("Game " + gameId + " does not exist");
+        }
     }
 
-    // Returns the following:
-    // 1 if game is won by a player
-    // 0 if game is continuing
-    // -1 if game is a draw
-    // TODO: for now, randomly generates game end state, need to determine the ACTUAL game end
-    private static int checkGameEnd(String gameId) {
-        Random random = new Random();
-        // returns a number between -1 and 1
-        // (0, 1, or 2) - 1 translates to a -1, 0, or 1
-        return random.nextInt(3) - 1; 
-    }
+    private static GameStatus checkGameEnd(String gameId) {
+        Game game = games.get(gameId);
+        if (game != null) {
+            int status = game.checkWinner();
+            if (status == 0) { // even if status is 0 (ongoing), need to check if there's a tie
+                if (!game.getBoard().contains(Integer.valueOf(0)))
+                    // if no 0 was found after no winner is found, the game is a tie
+                    return GameStatus.TIE_GAME;
+                else return GameStatus.GAME_ONGOING;
+            } else if (status == 1) {
+                return GameStatus.PLAYER_X_WIN;
+            } else return GameStatus.PLAYER_O_WIN;
+        } else return GameStatus.INVALID_STATUS;
+    }-
 
 
 
@@ -172,6 +326,7 @@ public class GameControllerMain {
     //  1 = Game is won by a player
     //  0 = Game continuing
     // -1 = Draw
+/*
     private static void winnerMessages(RouterClient client, String gameId, String channel, ConcurrentHashMap<String, Game> games, int winner) {
         // Check if game is finished or not
         // If game isn't finished, exit function
@@ -219,11 +374,27 @@ public class GameControllerMain {
         cleanGame(client, gameId, channel, games);
         return;
     }
+*/
 
     // cleanGame function
     // Cleans up the game after win conditions
     // Unsubscribes game controller from the game channel
     // Deletes the game from concurrent hash map
+
+
+    private static void cleanGame(RouterClient client, String gameId, String channel) {
+        // Unsubscribe the game controller from the game
+        try {
+            client.unsubscribe(channel);
+        } catch (IOException e) {
+            System.err.println("ERROR: invalid channel!");
+        }
+        // Remove the game from the concurrent hash map
+        games.remove(gameId);
+    }
+
+
+/*
     private static void cleanGame(RouterClient client, String gameId, String channel, ConcurrentHashMap<String, Game> games) {
         // Unsubscribe the game controller from the game
         try {
@@ -234,4 +405,5 @@ public class GameControllerMain {
         // Remove the game from the concurrent hash map
         games.remove(gameId);
     }
+*/
 }
