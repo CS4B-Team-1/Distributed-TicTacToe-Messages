@@ -157,9 +157,12 @@ public class PlayerMain {
                     } else if (line.startsWith("join ")) {  // JOIN GAME USERFLOW
                         String gameId = line.substring(5).trim();
                         String gameChannel = "/game/" + gameId;
+                        
+                        // TODO: player should probably only subscribe if they receive a JoinMessage response in the listener above
                         client.subscribe(gameChannel, listener);
 
                         //only needed to add one line for Join_Game userflow
+                        
                         client.send("/game/" + gameId, new JoinGameMessage(playerId, gameId));
 
                         currentGame[0] = gameChannel;
@@ -168,6 +171,8 @@ public class PlayerMain {
                     }else if (line.startsWith("create ")){
                         String gameId = line.substring(7).trim();
                         String gameChannel = "/game/" + gameId;
+
+                        // TODO: player should probably only subscribe if they receive a GameCreatedMessage response in the listener above
                         client.subscribe(gameChannel, listener);
                         currentGame[0] = gameChannel;
                         System.out.println("Joined " + gameChannel);

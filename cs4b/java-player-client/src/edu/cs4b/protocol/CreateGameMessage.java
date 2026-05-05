@@ -1,20 +1,19 @@
 package edu.cs4b.protocol;
 
 public class CreateGameMessage implements Message {
-    private final String gameId;
-    private final String playerId;
+    private String playerId;
+    private String gameId;
 
-    public CreateGameMessage(String gameId, String playerId) {
-        this.gameId = gameId;
+    public CreateGameMessage(String playerId, String gameId) {
         this.playerId = playerId;
+        this.gameId = gameId;
     }
 
     public String getGameId() {
-        return gameId;
+        return this.gameId;
     }
 
     public String getPlayerId() {
-        return playerId;
+        return this.playerId;
     }
-
 }
