@@ -28,10 +28,8 @@ public class GameControllerMain {
     private static final int DEFAULT_PORT = 4000;
     private static final String ALL_GAME_CHANNELS = "/game/*";
     private static final String PLAYERS = "/players";
-    private Map<String,Game> games = new HashMap<>();
-    private int gameCount = 0;
 
-    private ConcurrentHashMap<String, Game> games = new ConcurrentHashMap<>();
+    private static ConcurrentHashMap<String, Game> games = new ConcurrentHashMap<>();
 
     public static void main(String[] args) {
         String host = DEFAULT_HOST;
