@@ -166,6 +166,7 @@ public class PlayerMain {
                         String gameId = line.substring(7).trim();
                         String gameChannel = "/game/" + gameId;
 
+                        client.send(gameChannel, new CreateGameMessage(playerId, gameId));
                         // TODO: player should probably only subscribe if they receive a GameCreatedMessage response in the listener above
                         client.subscribe(gameChannel, listener);
                         currentGame[0] = gameChannel;

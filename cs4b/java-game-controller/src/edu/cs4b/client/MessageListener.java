@@ -2,8 +2,6 @@ package edu.cs4b.client;
 
 import edu.cs4b.protocol.Message;
 
-import java.io.IOException;
-
 /**
  * Callback interface for receiving messages on a channel.
  *
@@ -16,5 +14,5 @@ import java.io.IOException;
  */
 @FunctionalInterface
 public interface MessageListener {
-    void onMessage(String channel, String senderId, Message message) throws IOException;
+    void onMessage(String channel, String senderId, Message message);
 }

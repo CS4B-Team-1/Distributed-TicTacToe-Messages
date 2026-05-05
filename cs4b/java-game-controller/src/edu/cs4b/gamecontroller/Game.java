@@ -68,8 +68,12 @@ public class Game {
         return this.Board.get(index);
     }
 
-    public boolean setCurrentTurn(String prevTurnPlayerId, String currentTurnPlayerId) {
-        return this.currentTurn.compareAndSet(prevTurnPlayerId, currentTurnPlayerId);
+    // public boolean setCurrentTurn(String prevTurnPlayerId, String currentTurnPlayerId) {
+    //     return this.currentTurn.compareAndSet(prevTurnPlayerId, currentTurnPlayerId);
+    // }
+
+    public void setCurrentTurn(String newCurrentTurnPlayerId) {
+        this.currentTurn.set(newCurrentTurnPlayerId);
     }
 
     public String getCurrentTurn() {

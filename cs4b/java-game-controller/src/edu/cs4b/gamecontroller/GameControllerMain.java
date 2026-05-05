@@ -175,7 +175,7 @@ public class GameControllerMain {
 
             // get a list of players from the game
             String symbol = game.getPlayers().get(move.getPlayerId());
-            List<String> players = new ArrayList<>(game.getPlayers().values());
+            List<String> players = new ArrayList<>(game.getPlayers().keySet());
 
             // check if the given move's player is in the list of players
             if (!players.contains(move.getPlayerId())) {
@@ -187,7 +187,7 @@ public class GameControllerMain {
             String nextPlayerId = "";
             // just gets the first instance of a different player ID from the one who made the move
             for (String player: players) {
-                if (move.getPlayerId() != move.getPlayerId()) {
+                if (player != move.getPlayerId()) {
                     nextPlayerId = player;
                     break;
                 }
@@ -207,7 +207,7 @@ public class GameControllerMain {
                 reason = "No second player.";
             else if (!symbol.equals(PLAYER_X) && !symbol.equals(PLAYER_O))
                 reason = "Invalid player symbol.";
-            else if (game.getCurrentTurn() != move.getPlayerId())
+            else if (!game.getCurrentTurn().equals(move.getPlayerId()))
                 reason = "Not currently your turn. Current player's turn: " + game.getCurrentTurn();
             else if (!checkIfMoveValid(move.getGameId(), move.getRow(), move.getColumn()))
                 reason = "Invalid move at " + move.getRow() + move.getColumn() + ".";
@@ -221,8 +221,9 @@ public class GameControllerMain {
                 GameStatus boardStatus = checkGameEnd(move.getGameId());
 
                 // checks if the game is ongoing AND does a compare & set for the next turn's player ID
-                if ((boardStatus == GameStatus.GAME_ONGOING) && game.setCurrentTurn(move.getPlayerId(), nextPlayerId)) {
+                if ((boardStatus == GameStatus.GAME_ONGOING)) {
                     // send the MoveAcceptedMessage to the players
+                    game.setCurrentTurn(nextPlayerId);
                     client.send(channel + move.getGameId(), new MoveAcceptedMessage(
                                                 move.getGameId(), 
                                                 move.getPlayerId(), 
