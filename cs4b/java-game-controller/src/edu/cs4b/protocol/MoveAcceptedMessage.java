@@ -1,16 +1,18 @@
 package edu.cs4b.protocol;
 
+import java.util.List;
+
 public class MoveAcceptedMessage implements Message {
     private String gameId;
     private String playerId;    // the playerId of the player that made the move
     private int row;
     private int col;
-    private String updatedBoard;
+    private List<Integer> updatedBoard;
     private String nextTurn;    // the playerId of the player whose turn is next
-    private String gameStatus;
+    private GameStatus gameStatus;
 
     public MoveAcceptedMessage(String gameId, String playerId, int row, int col,
-                               String updatedBoard, String nextTurn, String gameStatus) {
+                               List<Integer> updatedBoard, String nextTurn, GameStatus gameStatus) {
         this.gameId = gameId;
         this.playerId = playerId;
         this.row = row;
@@ -36,7 +38,7 @@ public class MoveAcceptedMessage implements Message {
         return this.col;
     }
 
-    public String getUpdatedBoard() {
+    public List<Integer> getUpdatedBoard() {
         return this.updatedBoard;
     }
 
@@ -44,7 +46,7 @@ public class MoveAcceptedMessage implements Message {
         return this.nextTurn;
     }
 
-    public String getGameStatus() {
+    public GameStatus getGameStatus() {
         return this.gameStatus;
     }
 }

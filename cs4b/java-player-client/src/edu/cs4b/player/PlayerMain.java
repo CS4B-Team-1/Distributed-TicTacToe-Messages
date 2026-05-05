@@ -81,23 +81,17 @@ public class PlayerMain {
                 } else if (message instanceof TextMessage text) {
                     System.out.println(prefix + senderId + " says: " + text.getText());
                 } else if (message instanceof MoveAcceptedMessage moveAccepted) {
-                    System.out.println(prefix + senderId + " played: (" + moveAccepted.getRow() + ", " + moveAccepted.getCol() + ")");
-                    if (moveAccepted.getGameStatus().equals("Ongoing")) {
-                        // TODO: implement players switching turns (need to determine initial turn first on start of game; "Join Game" flow)
-                        System.out.println("Next Turn"); // temp dummy message
-                        // if (moveAccepted.getNextTurn().equals(playerId)) {
-                        //     System.out.println("Your turn!");
-                        //     isPlayerTurn.compareAndSet(false, true);
-                        // } 
-                        // else {
-                        //     isPlayerTurn.compareAndSet(true, false);
-                        // } 
-                        // TODO: probably need different cases for the different end game states?
+                    System.out.println(prefix + senderId + " Move Accepted: (" + moveAccepted.getRow() + ", " + moveAccepted.getCol() + ") from " + moveAccepted.getPlayerId());
+                    GameStatus status = moveAccepted.getGameStatus();
+                    if (status == GameStatus.GAME_ONGOING) {
+                        if (moveAccepted.getNextTurn().equals(playerId))
+                            System.out.println("Your Turn!");
+                        else System.out.println("Waiting for other player's move");
                     } else {
-                        System.out.println("Game Completed!");
+                        // TODO: complete "Game End" flow
                     }
                 } else if (message instanceof MoveRejectedMessage moveRejected) {
-                    System.out.println(prefix + senderId + " move invalid: (" + moveRejected.getRow() + ", " + moveRejected.getCol() + ")");
+                    System.out.println(prefix + senderId + " move invalid: (" + moveRejected.getRow() + ", " + moveRejected.getCol() + ")\nReason: " + moveRejected.getReason());
                 } else {
                     System.out.println(prefix + senderId + " sent: " + message);
                 }
@@ -105,7 +99,7 @@ public class PlayerMain {
 
             // Subscribe to the lobby channel
             client.subscribe(LOBBY, listener);
-            client.subscribe(PLAYERS + "\\" + name);
+            client.subscribe(PLAYERS + "/" + name, listener);
 
             // Announce ourselves in the lobby
             client.send(LOBBY, new JoinMessage(name));

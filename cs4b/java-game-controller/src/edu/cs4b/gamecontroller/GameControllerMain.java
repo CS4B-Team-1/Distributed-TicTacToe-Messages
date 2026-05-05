@@ -11,7 +11,9 @@ import java.util.UUID;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -30,6 +32,8 @@ public class GameControllerMain {
     private static final int DEFAULT_PORT = 4000;
     private static final String ALL_GAME_CHANNELS = "/game/*";
     private static final String PLAYERS = "/players";
+    private static final String PLAYER_X = "X";
+    private static final String PLAYER_O = "O";
 
     private static ConcurrentHashMap<String, Game> games = new ConcurrentHashMap<>();
 
@@ -160,38 +164,82 @@ public class GameControllerMain {
 
     private static void makeMoveMessageReceived(RouterClient client, String channel, MakeMoveMessage move) {
         try {
-            // check if the move is valid
-            if (checkIfMoveValid(move.getGameId(), move.getRow(), move.getColumn())) {
-                // if it's valid, update the game board
-                updateGameBoard(move.getGameId(), move.getRow(), move.getColumn());
-                // check the state of the board
-                int boardStatus = checkGameEnd(move.getGameId());
-                // if the boardStatus returned is not 0, the game is finished
-                String statusStr;
-                // TODO: create a better status indicator
-                if (boardStatus != 0) {
-                    statusStr = "Completed";
-                } else {
-                    statusStr = "Ongoing";
+            // grab the game and the symbol corresponding to the move made
+            Game game = games.get(move.getGameId());
+
+            // if the game is null, no game exists for that game ID
+            if (game == null) {
+                sendMoveRejection(client, move, "Game does not exist for game ID " + move.getGameId() + ".");
+                return;
+            }
+
+            // get a list of players from the game
+            String symbol = game.getPlayers().get(move.getPlayerId());
+            List<String> players = new ArrayList<>(game.getPlayers().values());
+
+            // check if the given move's player is in the list of players
+            if (!players.contains(move.getPlayerId())) {
+                sendMoveRejection(client, move, "You are not a player in this game.");
+                return;
+            }
+
+            // grab the player ID of the other player
+            String nextPlayerId = "";
+            // just gets the first instance of a different player ID from the one who made the move
+            for (String player: players) {
+                if (move.getPlayerId() != move.getPlayerId()) {
+                    nextPlayerId = player;
+                    break;
                 }
-                // send the MoveAcceptedMessage to the players
-                client.send(channel + move.getGameId(), new MoveAcceptedMessage(
-                                            move.getGameId(),
-                                            move.getPlayerId(), 
-                                            move.getRow(), 
-                                            move.getColumn(), 
-                                            "board-state-here",
-                                            "X or O", 
-                                            statusStr));
-                // TODO: actually send an updated board state, whose turn is next, and the game status
+            }
+
+            // proceed only if the following conditions are met:
+            // - the player is in the list of the game's players
+            // - there is a "next Player" (second player)
+            // - the player symbol is either an X or O
+            // - move is valid (an empty spot on the board)
+            // - it's the move's player's turn
+            String reason = "";
+            boolean success = false;
+            if (!players.contains(move.getPlayerId()))
+                reason = "You are not a player in this game.";
+            else if (nextPlayerId.isEmpty())
+                reason = "No second player.";
+            else if (!symbol.equals(PLAYER_X) && !symbol.equals(PLAYER_O))
+                reason = "Invalid player symbol.";
+            else if (game.getCurrentTurn() != move.getPlayerId())
+                reason = "Not currently your turn. Current player's turn: " + game.getCurrentTurn();
+            else if (!checkIfMoveValid(move.getGameId(), move.getRow(), move.getColumn()))
+                reason = "Invalid move at " + move.getRow() + move.getColumn() + ".";
+            else
+                success = true;
+
+            if (success) {
+                // if it's valid, update the game board
+                updateGameBoard(move.getGameId(), move.getRow(), move.getColumn(), symbol);
+                // check the state of the board
+                GameStatus boardStatus = checkGameEnd(move.getGameId());
+
+                // checks if the game is ongoing AND does a compare & set for the next turn's player ID
+                if ((boardStatus == GameStatus.GAME_ONGOING) && game.setCurrentTurn(move.getPlayerId(), nextPlayerId)) {
+                    // send the MoveAcceptedMessage to the players
+                    client.send(channel + move.getGameId(), new MoveAcceptedMessage(
+                                                move.getGameId(), 
+                                                move.getPlayerId(), 
+                                                move.getRow(), 
+                                                move.getColumn(), 
+                                                game.getBoard(),
+                                                nextPlayerId, 
+                                                boardStatus));
+                } else if (boardStatus == GameStatus.INVALID_STATUS){
+                    sendMoveRejection(client, move, "Game status is currently invalid.");
+                } else {    
+                    // TODO: proceed with win/lose/draw
+                }
+
+            // if any of the previous checks fail, the move is invalid and needs to be rejected
             } else {
-                // TODO: create actual reason for rejection
-                client.send(PLAYERS + move.getPlayerId(), new MoveRejectedMessage(
-                                            move.getGameId(), 
-                                            move.getPlayerId(),
-                                            move.getRow(), 
-                                            move.getColumn(), 
-                                            "Just because lol")); 
+                sendMoveRejection(client, move, reason);
             }
         } catch (IOException e) {
             System.err.println("Error: " + e.getMessage());
@@ -199,25 +247,45 @@ public class GameControllerMain {
         }
     }
 
+    private static void sendMoveRejection(RouterClient client, MakeMoveMessage message, String reason) throws IOException {
+        client.send(PLAYERS + "/" + message.getPlayerId(), new MoveRejectedMessage(
+                                            message.getGameId(), 
+                                            message.getPlayerId(),
+                                            message.getRow(), 
+                                            message.getColumn(), 
+                                            reason)); 
+    }
+
     private static boolean checkIfMoveValid(String gameId, int row, int column) {
-        // TODO do an actual validation using gameId's associated game board to check if a move is already there
-        return true;
+        Game game = games.get(gameId);
+        boolean isValid = false;
+        if (game != null) {
+            isValid = game.getValueAtPosition(row, column) == 0;
+        }
+        return isValid;
     }
 
-    private static void updateGameBoard(String gameId, int row, int column) {
-        // TODO: update game board associated with gameId
-        return;
+    private static void updateGameBoard(String gameId, int row, int column, String symbol) {
+        Game game = games.get(gameId);
+        if (game != null) {
+            game.updateBoard(row, column, symbol);
+        } else {
+            System.err.println("Game " + gameId + " does not exist");
+        }
     }
 
-    // Returns the following:
-    // 1 if game is won by a player
-    // 0 if game is continuing
-    // -1 if game is a draw
-    // TODO: for now, randomly generates game end state, need to determine the ACTUAL game end
-    private static int checkGameEnd(String gameId) {
-        Random random = new Random();
-        // returns a number between -1 and 1
-        // (0, 1, or 2) - 1 translates to a -1, 0, or 1
-        return random.nextInt(3) - 1; 
+    private static GameStatus checkGameEnd(String gameId) {
+        Game game = games.get(gameId);
+        if (game != null) {
+            int status = game.checkWinner();
+            if (status == 0) { // even if status is 0 (ongoing), need to check if there's a tie
+                if (!game.getBoard().contains(Integer.valueOf(0)))
+                    // if no 0 was found after no winner is found, the game is a tie
+                    return GameStatus.TIE_GAME;
+                else return GameStatus.GAME_ONGOING;
+            } else if (status == 1) {
+                return GameStatus.PLAYER_X_WIN;
+            } else return GameStatus.PLAYER_O_WIN;
+        } else return GameStatus.INVALID_STATUS;
     }
 }
