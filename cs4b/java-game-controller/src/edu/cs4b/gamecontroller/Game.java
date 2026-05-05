@@ -9,10 +9,20 @@ public class Game {
     
     private ConcurrentHashMap<String, String> players = new ConcurrentHashMap<>(); 
     private List<Integer> Board = new CopyOnWriteArrayList<>();
-    AtomicReference<String> currentTurn = new AtomicReference<>("");
+    private AtomicReference<String> currentTurn = new AtomicReference<>("");
 
     static final private int MAX_ROW_COL = 3;
     static final private int MAX_PLAYERS = 2;
+    // static final public String STATUS_X_WON = "X Wins";
+    // static final public String STATUS_O_WON = "O Wins";
+    // static final public String STATUS_TIE = "Tie Game";
+    // static final public String STATUS_ONGOING = "Ongoing";
+
+    // public static enum Status {
+    //     WON,
+    //     OVER,
+    //     ONGOING
+    // }
 
     public Game(String gameId, String creatorId) {
         this.gameId = gameId;
@@ -52,16 +62,32 @@ public class Game {
         return new CopyOnWriteArrayList<>(this.Board);
     }
 
+    // returns either a -1, 0, or 1 depending on the value at the given (row,column)
     public int getValueAtPosition(int row, int col) {
         int index = col + (row * MAX_ROW_COL);
         return this.Board.get(index);
+    }
+
+    public boolean setCurrentTurn(String prevTurnPlayerId, String currentTurnPlayerId) {
+        return this.currentTurn.compareAndSet(prevTurnPlayerId, currentTurnPlayerId);
     }
 
     public String getCurrentTurn() {
         return this.currentTurn.get();
     }
 
+    // returns 0 if no winner was found.
+    // otherwise, returns -1 for an O winner or 1 for an X winner
     public int checkWinner() {
+        int rows = checkRows();
+        if (rows != 0)
+            return rows;
+        int columns = checkColumns();
+        if (columns != 0)
+            return columns;
+        int diagonals = checkDiagonals();
+        if (diagonals != 0)
+            return diagonals;
         return 0;
     }
 
@@ -140,14 +166,13 @@ public class Game {
         } else winner = false;
         if (winner) return symbol;
 
-        // TODO:
         // check from top right to bottom left
             // as row increases, column decreases
-        symbol = Board.get(0);
+        symbol = Board.get(MAX_ROW_COL - 1); // "top-right" index, i.e. for a 3x3 grid, "top-right" to "bottom-left" is index 2 -> index 4 -> index 6
         if (symbol != 0) {
-            int offset = 1;
+            int offset = 2;
             for (int i = 1; i < MAX_ROW_COL; i++) {
-                newSymbol = Board.get((i * MAX_ROW_COL) + offset++);
+                newSymbol = Board.get(((i + 1) * MAX_ROW_COL) - offset++);
                 if ((symbol == newSymbol) && (newSymbol != 0)) { // checks if two consecutive symbols and no zero ("empty" spot)
                     winner = true;
                     symbol = newSymbol;
