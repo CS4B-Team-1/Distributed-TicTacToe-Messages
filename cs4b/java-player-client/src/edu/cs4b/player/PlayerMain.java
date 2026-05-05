@@ -124,6 +124,7 @@ public class PlayerMain {
             System.out.println("  say <text>           Send a chat message to /lobby");
             System.out.println("  move <row> <col>     Send a move to your game channel");
             System.out.println("  emoji <emoji> <n>    Send an emoji n times to /lobby");
+            System.out.println("  create <gameId>      Create game channel /game/<gameId>");
             System.out.println("  join <gameId>        Join game channel /game/<gameId>");
             System.out.println("  leave <gameId>       Leave game channel /game/<gameId>");
             System.out.println("  quit                 Disconnect and exit");
@@ -155,9 +156,7 @@ public class PlayerMain {
                         // send MakeMoveMessage to GameController
                         client.send("/game/", new MakeMoveMessage(gameId, name, row, col));
 
-                    }/*else if(){//do this
-
-                    }*/else if (line.startsWith("emoji ")) {
+                    }else if (line.startsWith("emoji ")) {
                         String[] parts = line.split("\\s+");
                         String emoji = parts[1];
                         int count = Integer.parseInt(parts[2]);
@@ -165,6 +164,13 @@ public class PlayerMain {
 
                     } else if (line.startsWith("join ")) {
                         String gameId = line.substring(5).trim();
+                        String gameChannel = "/game/" + gameId;
+                        client.subscribe(gameChannel, listener);
+                        currentGame[0] = gameChannel;
+                        System.out.println("Joined " + gameChannel);
+
+                    }else if (line.startsWith("create ")){
+                        String gameId = line.substring(7).trim();
                         String gameChannel = "/game/" + gameId;
                         client.subscribe(gameChannel, listener);
                         currentGame[0] = gameChannel;
