@@ -1,5 +1,7 @@
 package edu.cs4b.player;
 
+import edu.cs4b.client.MessageListener;
+import edu.cs4b.client.RouterClient;
 import edu.cs4b.protocol.*;
 
 import java.io.IOException;
@@ -92,19 +94,24 @@ public class PlayerMain {
                         // } 
                         // TODO: probably need different cases for the different end game states?
                         // If end game state, unsubscribe player from the game
-                        client.unsubscribe("/game/" + gameId);
                     } else {
                         System.out.println("Game Completed!");
+                        // If game is completed, automatically unsubscribe player from the channel
+                        try {
+                            client.unsubscribe(channel);
+                        } catch (IOException e) {
+                            System.out.println("ERROR: Failed to unsubscribe player from channel!");
+                        }
                     }
                 } else if (message instanceof MoveRejectedMessage moveRejected) {
                     System.out.println(prefix + senderId + " move invalid: (" + moveRejected.getRow() + ", " + moveRejected.getCol() + ")");
-                } else if (message instanceof GameWonMessage gameWon) {
+                } else if (message instanceof GameWonMessage) {
                     System.out.println("Game Won!");
                     // Output name of the winner
-                } else if (message instanceof GameOverMessage gameOver) {
+                } else if (message instanceof GameOverMessage) {
                     System.out.println("Game Lost!");
                     // Output name of the loser
-                } else if (message instanceof GameOverMessage gameDraw) {
+                } else if (message instanceof GameOverMessage) {
                     System.out.println("Game Draw!");
                 } else {
                     System.out.println(prefix + senderId + " sent: " + message);

@@ -27,7 +27,7 @@ public class GameControllerMain {
     private static final String ALL_GAME_CHANNELS = "/game/*";
     private static final String PLAYERS = "/players";
 
-    private ConcurrentHashMap<String, Game> games = new ConcurrentHashMap<>();
+    private static ConcurrentHashMap<String, Game> games = new ConcurrentHashMap<>();
 
     public static void main(String[] args) {
         String host = DEFAULT_HOST;
@@ -56,7 +56,7 @@ public class GameControllerMain {
                 if (message instanceof JoinMessage join) {
                     System.out.println("Player joined: " + join.getPlayerName());
                 } else if (message instanceof MakeMoveMessage move) {
-                    makeMoveMessageReceived(client, channel, move);
+                    makeMoveMessageReceived(client, channel, move, games);
                 } else if (message instanceof TextMessage text) {
                     System.out.println("Text: " + text.getText());
                 } else if (message instanceof CreateGameMessage game) {
@@ -93,7 +93,7 @@ public class GameControllerMain {
         //Game("Game-" + UUID.randomUUID().toString().substring(0, 4), playerID);
     }
 
-    private static void makeMoveMessageReceived(RouterClient client, String channel, MakeMoveMessage move) {
+    private static void makeMoveMessageReceived(RouterClient client, String channel, MakeMoveMessage move, ConcurrentHashMap<String, Game> game) {
         try {
             // check if the move is valid
             if (checkIfMoveValid(move.getGameId(), move.getRow(), move.getColumn())) {
@@ -106,6 +106,8 @@ public class GameControllerMain {
                 // TODO: create a better status indicator
                 if (boardStatus != 0) {
                     statusStr = "Completed";
+                    // Call winnerMessages function with boardStatus int
+                    winnerMessages(client, move.getGameId(), channel, games, boardStatus);
                 } else {
                     statusStr = "Ongoing";
                 }
@@ -167,23 +169,25 @@ public class GameControllerMain {
     // winnerMessages function
     // Checks whether or not the game is finished
     // Sends out game won / over / draw messages to the corresponding players
-    // O = -1
-    // X = 1
-    private static void winnerMessages(RouterClient client, String gameId, MakeMoveMessage move, ConcurrentHashMap games) {
-        // 
-        
-        // Winner integer, number for checking winning state of the board
-        // 0 = No winner   1 = Player 1 wins   2 = Player 2 wins   3 = Draw
-        int winner = checkWinner();
+    //  1 = Game is won by a player
+    //  0 = Game continuing
+    // -1 = Draw
+    private static void winnerMessages(RouterClient client, String gameId, String channel, ConcurrentHashMap<String, Game> games, int winner) {
         // Check if game is finished or not
-        if (winner < 0 || winner > 3) {
+        // If game isn't finished, exit function
+        if (winner == 0) {
             return;
         }
         // Check if game is a draw or not
-        if (winner == 3) {
+        if (winner == -1) {
             // If game is a draw, send GameDrawMessage to both players
             // Send final board state later
-            client.send(gameId, new GameDrawMessage(client.getClientId() + gameId, ""));
+            // GameDrawMessage(String gameId, String finalBoard)
+            try {
+                client.send(gameId, new GameDrawMessage(gameId, ""));
+            } catch (IOException e) {
+                System.out.println("ERROR: Failed to send draw message!");
+            }
         } else {
                 // If game is not a draw, send win and lose messages
                 switch (winner) {
@@ -191,40 +195,42 @@ public class GameControllerMain {
                     // Later update winner, winningLine, and finalBoard to not be blank
                     // GameWonMessage(String gameId, String winner, String winningLine, String finalBoard)
                     case 1:
-                        System.out.println("test");
-                        client.send(client.getClientId() + gameId, new GameWonMessage(gameId, "", "", ""));
+                        try {
+                            client.send(client.getClientId(), new GameWonMessage(gameId, "", "", ""));
+                        } catch (IOException e) {
+                            System.out.println("ERROR: Failed to send winning message!");
+                        }
                     break;
-                    // Send GameOverMessage to losing player\
+                    // Send GameOverMessage to losing player
                     // Later update result, finalBoard to not be blank
                     // GameOverMessage(String gameId, String result, String finalBoard)
-                    case 2:
-                        client.send(client.getClientId(), new GameOverMessage(gameId, "", ""));
+                    case -1:
+                        try {
+                            client.send(client.getClientId(), new GameOverMessage(gameId, "", ""));
+                        } catch (IOException e) {
+                            System.out.println("ERROR: Failed to send losing message!");
+                        }
                     break;
                     // No win condition, exit switch
                     default:
                 }
         }
-        // Unsubscribe players from the game
+        // Clean up game
+        cleanGame(client, gameId, channel, games);
+        return;
     }
 
-    // checkDraw function
-    // Temporary function to check winner state
-    // 1 = Player 1 wins
-    // 2 = Player 2 wins
-    // 3 = Draw
-    private static int checkWinner() {
-        int num = (int)(Math.random() * 4);
-        return num;
-    }
-
-
-    // Clean game function
+    // cleanGame function
     // Cleans up the game after win conditions
-    // Unsubscribes players from the game
+    // Unsubscribes game controller from the game channel
     // Deletes the game from concurrent hash map
-    private static void cleanGame(RouterClient client, String gameId, String channel, MakeMoveMessage move, ConcurrentHashMap games) {
+    private static void cleanGame(RouterClient client, String gameId, String channel, ConcurrentHashMap<String, Game> games) {
         // Unsubscribe the game controller from the game
-        client.unsubscribe(channel);
+        try {
+            client.unsubscribe(channel);
+        } catch (IOException e) {
+            System.err.println("ERROR: invalid channel!");
+        }
         // Remove the game from the concurrent hash map
         games.remove(gameId);
     }
