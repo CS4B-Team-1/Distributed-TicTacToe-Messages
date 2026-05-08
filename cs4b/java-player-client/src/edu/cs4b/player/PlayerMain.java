@@ -96,6 +96,7 @@ public class PlayerMain {
                     // Game Draw message received
                     // Print out Game Draw message, disconnect player from client
                     System.out.println("Game Draw!");
+                    System.out.println("Unsubscribing from game...");
                     try {
                         client.unsubscribe(channel);
                     } catch (IOException e) {
@@ -105,6 +106,7 @@ public class PlayerMain {
                     // Game Won message received
                     // Print out Game Won message, disconnect player from client
                     System.out.println("Congratulations, you win!");
+                    System.out.println("Unsubscribing from game...");
                     try {
                         client.unsubscribe(channel);
                     } catch (IOException e) {
@@ -114,6 +116,7 @@ public class PlayerMain {
                     // Game Over message received
                     // Print out Game Over message, disconnect player from client
                     System.out.println("Sorry, You Lost!");
+                    System.out.println("Unsubscribing from game...");
                     try {
                         client.unsubscribe(channel);
                     } catch (IOException e) {
