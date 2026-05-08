@@ -81,6 +81,8 @@ public class PlayerMain {
                 } else if (message instanceof TextMessage text) {
                     System.out.println(prefix + senderId + " says: " + text.getText());
                 } else if (message instanceof MoveAcceptedMessage moveAccepted) {
+                    System.out.println("Prefix is: " + prefix);
+                    System.out.println("Channel is: " + channel);
                     System.out.println(prefix + senderId + " Move Accepted: (" + moveAccepted.getRow() + ", " + moveAccepted.getCol() + ") from " + moveAccepted.getPlayerId());
                     GameStatus status = moveAccepted.getGameStatus();
                     if (status == GameStatus.GAME_ONGOING) {
@@ -92,33 +94,33 @@ public class PlayerMain {
                     }
                 } else if (message instanceof MoveRejectedMessage moveRejected) {
                     System.out.println(prefix + senderId + " move invalid: (" + moveRejected.getRow() + ", " + moveRejected.getCol() + ")\nReason: " + moveRejected.getReason());
-                } else if (message instanceof GameDrawMessage) {
+                } else if (message instanceof GameDrawMessage gameDraw) {
                     // Game Draw message received
                     // Print out Game Draw message, disconnect player from client
                     System.out.println("Game Draw!");
-                    System.out.println("Unsubscribing from game...");
                     try {
-                        client.unsubscribe(channel);
+                        client.unsubscribe("/game/" + gameDraw.getGameId());
+                        System.out.println("Unsubscribed from game");
                     } catch (IOException e) {
                         System.out.println("ERROR: Failed unsubscribing!");
                     }
-                } else if (message instanceof GameWonMessage) {
+                } else if (message instanceof GameWonMessage gameWon) {
                     // Game Won message received
                     // Print out Game Won message, disconnect player from client
                     System.out.println("Congratulations, you win!");
-                    System.out.println("Unsubscribing from game...");
                     try {
-                        client.unsubscribe(channel);
+                        client.unsubscribe("/game/" + gameWon.getGameId());
+                        System.out.println("Unsubscribed from game");
                     } catch (IOException e) {
                         System.out.println("ERROR: Failed unsubscribing!");
                     }
-                } else if (message instanceof GameOverMessage) {
+                } else if (message instanceof GameOverMessage gameOver) {
                     // Game Over message received
                     // Print out Game Over message, disconnect player from client
                     System.out.println("Sorry, You Lost!");
-                    System.out.println("Unsubscribing from game...");
                     try {
-                        client.unsubscribe(channel);
+                        client.unsubscribe("/game/" + gameOver.getGameId());
+                        System.out.println("Unsubscribed from game");
                     } catch (IOException e) {
                         System.out.println("ERROR: Failed unsubscribing!");
                     }

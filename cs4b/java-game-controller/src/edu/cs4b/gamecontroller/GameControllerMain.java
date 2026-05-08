@@ -302,46 +302,23 @@ public class GameControllerMain {
     // winningMessages function
     // Sends out game draw, won, over messages
     private static void winningMessages(RouterClient client, GameStatus status, String gameId) {
-        
-        System.out.println("Getting Player IDs");
-        
-        String symbolO = "O";
-        String symbolX = "X";
-
         // Find ID of Player O
-        System.out.println("Getting ID of Player O:");
-        Optional<String> playerOfinder = games.get(gameId).getPlayers().entrySet().stream().filter(entry->symbolO.equals(entry.getValue())).map(ConcurrentHashMap.Entry::getKey).findFirst();
-        
+        Optional<String> findO = games.get(gameId).getPlayers().entrySet().stream().filter(entry->"O".equals(entry.getValue())).map(ConcurrentHashMap.Entry::getKey).findFirst();
+        String playerO = findO.get();
+
         // Find ID of Player X
-        System.out.println("Getting ID of Player X:");
-        Optional<String> playerXfinder = games.get(gameId).getPlayers().entrySet().stream().filter(entry->symbolX.equals(entry.getValue())).map(ConcurrentHashMap.Entry::getKey).findFirst();
-
-
-
-        System.out.println("Getting String of Player O:");
-        String playerO = playerOfinder.get();
-
-        System.out.println("Getting String of Player x:");
-        String playerX = playerXfinder.get();
-
+        Optional<String> findX = games.get(gameId).getPlayers().entrySet().stream().filter(entry->"X".equals(entry.getValue())).map(ConcurrentHashMap.Entry::getKey).findFirst();
+        String playerX = findX.get();
 
         // Check if GameStatus a draw
-
-        System.out.println("Checking if game is a draw:");
-
         if (status == GameStatus.TIE_GAME) {
+
             // Send GameDrawMessage to both players
-
-            System.out.println("Sending Game Draw message to Player X:");
-
             try {
                 client.send(PLAYERS + "/" + playerX, new GameDrawMessage(gameId, ""));
             } catch (IOException e) {
                 System.out.println("ERROR: Failed to send GameDrawMessage to Player X!");
             }
-
-            System.out.println("Sending Game Draw message to Player O:");
-
             try {
                 client.send(PLAYERS + "/" + playerO, new GameDrawMessage(gameId, ""));
             } catch (IOException e) {
@@ -351,50 +328,38 @@ public class GameControllerMain {
                 // Check if GameStatus a Player X win
         } else if (status == GameStatus.PLAYER_X_WIN) {
 
-            System.out.println("Sending Game Won to Player X:");
-
             // Send GameWonMessage to Player X
             try {
-                client.send(PLAYERS + "/" + playerX, new GameWonMessage(playerX, "", "", ""));
+                client.send(PLAYERS + "/" + playerX, new GameWonMessage(gameId, "", "", ""));
             } catch (IOException e) {
-                System.out.println("ERROR: Failed to send GameWonMessage!");
+                System.out.println("ERROR: Failed to send GameWonMessage to Player X!");
             }
-
-            System.out.println("Sending Game Lost to Player O:");
-
 
             // Send GameLostMessage to Player O
             try {
-                client.send(PLAYERS + "/" + playerO, new GameOverMessage(playerO, "", ""));
+                client.send(PLAYERS + "/" + playerO, new GameOverMessage(gameId, "", ""));
             } catch (IOException e) {
-                System.out.println("ERROR: Failed to send GameOverMessage!");
+                System.out.println("ERROR: Failed to send GameOverMessage to Player O!");
             }
             // Check if GameStatus a Player O win
         } else if (status == GameStatus.PLAYER_O_WIN) {
 
-            System.out.println("Sending Game Won to Player O:");
-
             // Send GameWonMessage to Player O
             try {
-                client.send(PLAYERS + "/" + playerO, new GameWonMessage(playerO, "", "", ""));
+                client.send(PLAYERS + "/" + playerO, new GameWonMessage(gameId, "", "", ""));
             } catch (IOException e) {
-                System.out.println("ERROR: Failed to send GameWonMessage!");
+                System.out.println("ERROR: Failed to send GameWonMessage to Player O!");
             }
-
-            System.out.println("Sending Game Lost to Player X:");
 
             // Send GameLostMessage to Player O
             try {
-                client.send(PLAYERS + "/" + playerX, new GameOverMessage(playerX, "", ""));
+                client.send(PLAYERS + "/" + playerX, new GameOverMessage(gameId, "", ""));
             } catch (IOException e) {
-                System.out.println("ERROR: Failed to send GameOverMessage!");
+                System.out.println("ERROR: Failed to send GameOverMessage to Player X!");
             }
         }
 
         // Remove game from concurrent hash map
-
-        System.out.println("Removing game from hash map:");
-
         games.remove(gameId);
         return;
     }
